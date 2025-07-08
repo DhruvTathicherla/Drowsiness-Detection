@@ -12,17 +12,18 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const AnalyzeDrowsinessInputSchema = z.object({
-  ear: z.number().describe('Eye Aspect Ratio (EAR) - a measure of eye openness.'),
-  mar: z.number().describe('Mouth Aspect Ratio (MAR) - a measure of mouth openness.'),
-  blinkRate: z.number().describe('Number of blinks per minute.'),
-  yawnRate: z.number().describe('Number of yawns per minute.'),
+  photoDataUri: z
+    .string()
+    .describe(
+      "A photo of a person's face, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+    ),
   context: z.string().optional().describe('Any contextual information that might affect drowsiness (e.g., driving, reading, etc.).'),
 });
 export type AnalyzeDrowsinessInput = z.infer<typeof AnalyzeDrowsinessInputSchema>;
 
 const AnalyzeDrowsinessOutputSchema = z.object({
   drowsinessLevel: z.string().describe('A qualitative assessment of drowsiness level (e.g., Alert, Slightly Drowsy, Moderately Drowsy, Very Drowsy).'),
-  reason: z.string().describe('Explanation for the assessed drowsiness level, considering EAR, MAR, blink rate, yawn rate, and context.'),
+  reason: z.string().describe("Explanation for the assessed drowsiness level, analyzing the person's face for signs of drowsiness like eye closure, yawning, etc."),
   recommendation: z.string().describe('A recommendation based on the drowsiness level (e.g., Take a break, Adjust environment, etc.).'),
 });
 export type AnalyzeDrowsinessOutput = z.infer<typeof AnalyzeDrowsinessOutputSchema>;
@@ -35,17 +36,14 @@ const prompt = ai.definePrompt({
   name: 'analyzeDrowsinessPrompt',
   input: {schema: AnalyzeDrowsinessInputSchema},
   output: {schema: AnalyzeDrowsinessOutputSchema},
-  prompt: `You are an expert in analyzing drowsiness levels based on various metrics.
+  prompt: `You are an expert in analyzing drowsiness levels based on a photo of a person's face.
 
-  Given the following information about a person, assess their drowsiness level, provide a reason for your assessment, and offer a recommendation.
+  Analyze the provided photo to assess the person's drowsiness level. Look for signs like eye openness (or closure), mouth openness (yawning), head posture, and general facial expression.
 
-  Eye Aspect Ratio (EAR): {{ear}}
-  Mouth Aspect Ratio (MAR): {{mar}}
-  Blink Rate (blinks/minute): {{blinkRate}}
-  Yawn Rate (yawns/minute): {{yawnRate}}
+  Photo: {{media url=photoDataUri}}
   Context: {{context}}
 
-  Consider potential confounding circumstances (e.g., the person might be talking, reading, etc.) when making your assessment.
+  Based on your analysis, provide a drowsiness level, a reason for your assessment, and a recommendation.
 
   Drowsiness Level (choose one: Alert, Slightly Drowsy, Moderately Drowsy, Very Drowsy):
   Reason:
