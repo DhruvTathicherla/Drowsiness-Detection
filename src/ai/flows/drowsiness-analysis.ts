@@ -83,8 +83,32 @@ const drowsinessAnalysisFlow = ai.defineFlow(
     inputSchema: DrowsinessAnalysisInputSchema,
     outputSchema: DrowsinessAnalysisOutputSchema,
   },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
+  async (input, streamingCallback) => {
+    const maxRetries = 3;
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+      try {
+        const { output } = await prompt(input);
+        return output!;
+      } catch (error) {
+        attempt++;
+        if (attempt >= maxRetries) {
+          console.error("AI Analysis failed after multiple retries:", error);
+          // Return a default "alert" state or re-throw the error
+          // For this use case, we can return a non-drowsy state to avoid false alerts.
+          return {
+            drowsinessLevel: 'Alert',
+            confidence: 0.5,
+            rationale: 'Could not connect to the AI analysis service. Please check your connection and try again.'
+          };
+        }
+        // Wait for a short period before retrying (e.g., exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+      }
+    }
+
+    // This part should be unreachable but is here for type safety
+    throw new Error('AI analysis failed unexpectedly after retries.');
   }
 );
