@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Video, Loader2, CameraOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { FaceLandmarker, FilesetResolver, DrawingUtils } from "@mediapipe/tasks-vision";
-import { calculateEAR, calculateMAR, RIGHT_EYE_LANDMARKS, LEFT_EYE_LANDMARKS, MOUTH_LANDMARKS } from "@/lib/facial-metrics";
+import { calculateEAR, calculateMAR, LEFT_EYE_LANDMARKS, RIGHT_EYE_LANDMARKS, MOUTH_LANDMARKS } from "@/lib/facial-metrics";
 import type { Metrics } from "./dashboard";
 
 const EAR_THRESHOLD = 0.23;
@@ -49,30 +49,12 @@ export default function WebcamFeed({
 
   const eyeState = useRef({ framesClosed: 0, blinkStartTime: 0 });
   const yawnState = useRef({ framesOpen: 0, yawnStartTime: 0 });
-
-  const stopWebcam = useCallback(() => {
-    if (animationFrameId.current) {
-      cancelAnimationFrame(animationFrameId.current);
-      animationFrameId.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setStatus("IDLE");
-    onCameraReady?.(false);
-  }, [onCameraReady]);
   
   const predictLoop = useCallback(() => {
-    if (!faceLandmarkerRef.current) return;
-
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    if (video && canvas && video.readyState >= 2) {
+    if (video && canvas && faceLandmarkerRef.current && video.readyState >= 2) {
       const canvasCtx = canvas.getContext("2d");
       if (!canvasCtx) return;
 
@@ -130,18 +112,18 @@ export default function WebcamFeed({
       }
     }
     
-    if (isActive) {
-      animationFrameId.current = requestAnimationFrame(predictLoop);
-    }
-  }, [isActive, isMonitoring, isCalibrating, onMetricsUpdate, showOverlay]);
+    animationFrameId.current = requestAnimationFrame(predictLoop);
+  }, [isMonitoring, isCalibrating, onMetricsUpdate, showOverlay]);
   
   useEffect(() => {
-    async function startWebcam() {
-      if (status !== 'IDLE') return;
+    async function setupWebcam() {
+      if (!isActive) {
+        return;
+      }
 
       setStatus('INITIALIZING');
       onCameraReady?.(false);
-
+      
       try {
         if (!faceLandmarkerRef.current) {
           const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
@@ -179,18 +161,23 @@ export default function WebcamFeed({
       }
     }
 
-    if (isActive) {
-      startWebcam();
-    } else {
-      stopWebcam();
-    }
+    setupWebcam();
 
     return () => {
-      // This cleanup runs when isActive changes or the component unmounts.
-      stopWebcam();
+        if (animationFrameId.current) {
+            cancelAnimationFrame(animationFrameId.current);
+        }
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+        }
+        if(videoRef.current) {
+            videoRef.current.srcObject = null;
+        }
+        setStatus("IDLE");
+        onCameraReady?.(false);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive]);
+  }, [isActive, onCameraReady, predictLoop, toast]);
+
 
   const renderOverlay = () => {
     switch (status) {
