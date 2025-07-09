@@ -74,7 +74,7 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
     const canvasCtx = canvas?.getContext("2d");
 
     if (!video || !faceLandmarker || !canvas || !canvasCtx || video.paused || video.ended || video.readyState < 2) {
-      animationFrameId.current = requestAnimationFrame(predictLoop);
+      if (isMonitoring || isCalibrating) animationFrameId.current = requestAnimationFrame(predictLoop);
       return;
     }
     
@@ -88,12 +88,14 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
       if (results.faceLandmarks?.length) {
         const landmarks = results.faceLandmarks[0];
 
-        // Draw mesh
-        drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: "#C0C0C070", lineWidth: 1 });
-        drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, { color: "#FF3030" });
-        drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, { color: "#30FF30" });
-        drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LIPS, { color: "#E0E0E0" });
-
+        // Draw mesh only if showOverlay is true
+        if (showOverlay) {
+          drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, { color: "#C0C0C070", lineWidth: 1 });
+          drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, { color: "#FF3030" });
+          drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, { color: "#30FF30" });
+          drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LIPS, { color: "#E0E0E0" });
+        }
+        
         const leftEyeEAR = calculateEAR(LEFT_EYE_LANDMARKS.map(i => landmarks[i]));
         const rightEyeEAR = calculateEAR(RIGHT_EYE_LANDMARKS.map(i => landmarks[i]));
         const avgEAR = (leftEyeEAR + rightEyeEAR) / 2.0;
@@ -132,10 +134,10 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
       canvasCtx.restore();
     }
     
-    if (isMonitoring) {
+    if (isMonitoring || isCalibrating) {
       animationFrameId.current = requestAnimationFrame(predictLoop);
     }
-  }, [onMetricsUpdate, isMonitoring]);
+  }, [onMetricsUpdate, isMonitoring, isCalibrating, showOverlay]);
 
   const startMonitoring = useCallback(async () => {
     if (status === 'MONITORING' || status === 'INITIALIZING_CAMERA') return;
@@ -184,10 +186,11 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
       setStatus("IDLE");
       setStatusMessage("Ready to start monitoring.");
     }
-  }, [status, onCameraReady]);
+  }, [onCameraReady]);
 
   useEffect(() => {
-    if (isMonitoring) {
+    const shouldBeMonitoring = isMonitoring || isCalibrating;
+    if (shouldBeMonitoring) {
       if (status === 'IDLE' && faceLandmarkerRef.current) {
         startMonitoring();
       }
@@ -196,7 +199,7 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
     }
     // Cleanup on unmount
     return () => stopMonitoring();
-  }, [isMonitoring, status, startMonitoring, stopMonitoring]);
+  }, [isMonitoring, isCalibrating, status, startMonitoring, stopMonitoring]);
 
   const showLoader = status === 'INITIALIZING_MODEL' || status === 'INITIALIZING_CAMERA';
   
