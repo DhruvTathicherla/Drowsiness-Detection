@@ -11,9 +11,9 @@
 
 ## Style Guidelines:
 
-- Primary color: Analogous green (#7CFC00) evokes the concepts of safety, attention, and forward-thinking alertness. Use this as the primary tone for all user-generated displays, especially charts.
-- Background color: A very desaturated shade of the primary green (#E0F8E0) will fill the background, ensuring comfortable contrast with all page elements.
-- Accent color: The analogous color, yellow (#BFFF00) will be used on selected UI elements such as graphs.
+- Primary color: Navy blue (#34495E), providing a professional and serious feel appropriate for a monitoring application.
+- Background color: Light gray (#ECF0F1), offering a clean and unobtrusive backdrop.
+- Accent color: Electric blue (#7DF9FF) to draw the user's attention and make elements stand out on the UI.
 - Body and headline font: 'Inter', a sans-serif font, giving a clean, neutral, and readable appearance for data display.
 - Use clear, simple icons for controls such as start, stop, pause, and settings to aid in intuitive navigation.
 - Implement subtle animations (e.g., a growing opacity when alerts are triggered), so as not to distract from core readings.
