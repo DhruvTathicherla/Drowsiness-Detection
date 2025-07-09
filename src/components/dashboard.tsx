@@ -7,14 +7,13 @@ import WebcamFeed from "@/components/webcam-feed";
 import DrowsinessAnalysis from "@/components/drowsiness-analysis";
 import MetricsGrid from "@/components/metrics-grid";
 import DrowsinessChart from "@/components/drowsiness-chart";
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import SettingsDialog from "@/components/settings-dialog";
 import CalibrationDialog from "./calibration-dialog";
 import SessionSummaryDialog from "./session-summary-dialog";
 import { drowsinessAnalysis } from "@/app/actions";
 import type { DrowsinessAnalysisInput, type DrowsinessAnalysisOutput } from "@/ai/flows/drowsiness-analysis";
-import { Siren } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import FlashingAlert from "./flashing-alert";
 
 export interface Metrics {
   blinkCount: number;
@@ -62,7 +61,7 @@ export default function Dashboard() {
   });
   const [aiAnalysis, setAiAnalysis] = useState<DrowsinessAnalysisOutput | null>(null);
   const [drowsinessHistory, setDrowsinessHistory] = useState<DrowsinessDataPoint[]>([]);
-  const [showAlert, setShowAlert] = useState(false);
+  const [showFlashingAlert, setShowFlashingAlert] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCalibration, setShowCalibration] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
@@ -92,6 +91,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     setIsClient(true);
+    // Ensure Audio is only accessed on the client
     if (typeof Audio !== "undefined") {
       audioRef.current = new Audio("/alert.mp3");
       audioRef.current.preload = "auto";
@@ -126,7 +126,6 @@ export default function Dashboard() {
     const blinksInWindow = blinkHistoryRef.current.length;
     const yawnsInWindow = yawnHistoryRef.current.length;
 
-    // Use session duration if less than rolling window
     const elapsedSeconds = (now - (sessionStartTime.current > windowStartTime ? sessionStartTime.current : windowStartTime)) / 1000;
     
     const blinkRate = elapsedSeconds > 0 ? (blinksInWindow / elapsedSeconds) * 60 : 0;
@@ -183,10 +182,9 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isMonitoring) return;
 
-    // Run analysis on a consistent interval for reliability
     const analysisInterval = setInterval(() => {
       runDrowsinessAnalysis();
-    }, 2000); // Analyze every 2 seconds
+    }, 2000);
 
     const historyInterval = setInterval(() => {
       setDrowsinessHistory(prevHistory => {
@@ -211,19 +209,20 @@ export default function Dashboard() {
   useEffect(() => {
     const now = Date.now();
     if (isMonitoring && aiAnalysis && aiAnalysis.drowsinessLevel !== 'Alert' && (now - lastAlertTime.current > 30000)) { // 30s cooldown
-      setShowAlert(true);
+      setShowFlashingAlert(true);
       if (settings.audibleAlerts && audioRef.current) {
         audioRef.current.play().catch(e => console.error("Error playing sound:", e));
       }
       lastAlertTime.current = now;
+      setTimeout(() => setShowFlashingAlert(false), 5000); // Hide alert after 5 seconds
     }
-  }, [isMonitoring, aiAnalysis, settings.drowsinessThreshold, settings.audibleAlerts]);
+  }, [isMonitoring, aiAnalysis, settings.audibleAlerts]);
 
   const resetState = () => {
     setMetrics({ blinkCount: 0, blinkDuration: 0, yawnCount: 0, yawnDuration: 0, ear: 0, mar: 0, drowsinessScore: 0 });
     setDrowsinessHistory([]);
     setAiAnalysis(null);
-    setShowAlert(false);
+    setShowFlashingAlert(false);
     blinkHistoryRef.current = [];
     yawnHistoryRef.current = [];
     lastAlertTime.current = 0;
@@ -295,13 +294,16 @@ export default function Dashboard() {
         onExport={handleExport}
         isExportDisabled={drowsinessHistory.length === 0}
       />
+      
+      <FlashingAlert isAlerting={showFlashingAlert} alertText={aiAnalysis?.drowsinessLevel || "Drowsiness Detected"} />
+
       <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 flex flex-col gap-6">
             {isClient && <WebcamFeed 
                             isActive={isMonitoring || showCalibration} 
                             isMonitoring={isMonitoring}
-                            isCalibrating={showCalibration}
+                            isCalibrating={false}
                             onMetricsUpdate={handleMetricsUpdate} 
                         />}
             <DrowsinessAnalysis analysis={aiAnalysis} />
@@ -312,24 +314,6 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
-
-      {/* Drowsiness Alert */}
-      <AlertDialog open={showAlert} onOpenChange={setShowAlert}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-destructive flex items-center gap-2 text-2xl">
-              <Siren className="w-8 h-8"/>
-              Drowsiness Alert!
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-lg">
-              {aiAnalysis?.rationale || "High level of drowsiness detected. Please take a break to ensure your safety."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setShowAlert(false)} className="w-full">Dismiss</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <SettingsDialog
         open={showSettings}
@@ -351,5 +335,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-    
