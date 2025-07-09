@@ -21,6 +21,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
   const [isDone, setIsDone] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [isCalibrating, setIsCalibrating] = useState(false);
+  const [calibrationFailed, setCalibrationFailed] = useState(false);
   
   const metricsBuffer = useRef<{ ear: number; mar: number }[]>([]);
   const { toast } = useToast();
@@ -36,6 +37,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
   const startCalibration = () => {
     setProgress(0);
     setIsDone(false);
+    setCalibrationFailed(false);
     metricsBuffer.current = [];
     setIsCalibrating(true);
   };
@@ -47,34 +49,48 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
         setProgress((prev) => {
           if (prev >= 100) {
             clearInterval(timer);
-            setIsCalibrating(false);
-            
-            if (metricsBuffer.current.length > 10) { // Ensure we have enough samples
-                const avgEar = metricsBuffer.current.reduce((sum, m) => sum + m.ear, 0) / metricsBuffer.current.length;
-                const avgMar = metricsBuffer.current.reduce((sum, m) => sum + m.mar, 0) / metricsBuffer.current.length;
-                
-                setCalibrationData({ baselineEar: avgEar, baselineMar: avgMar });
-                setIsDone(true);
-                toast({
-                    title: "Calibration Successful!",
-                    description: `Baseline EAR set to ${avgEar.toFixed(2)}`,
-                });
-            } else {
-                toast({
-                    variant: "destructive",
-                    title: "Calibration Failed",
-                    description: "Could not detect facial features clearly. Please try again in better lighting.",
-                });
-                onOpenChange(false); // Close dialog on failure
-            }
+            setIsCalibrating(false); // This will trigger the other useEffect
             return 100;
           }
           return prev + 5; // 5% per 250ms = 5 seconds total
         });
       }, 250);
     }
-    return () => clearInterval(timer);
-  }, [isCalibrating, setCalibrationData, onOpenChange, toast]);
+    return () => {
+        if (timer) clearInterval(timer);
+    };
+  }, [isCalibrating]);
+
+  useEffect(() => {
+    // This effect runs after `isCalibrating` is set to false
+    if (!isCalibrating && progress === 100) {
+      if (metricsBuffer.current.length > 10) { // Ensure we have enough samples
+          const avgEar = metricsBuffer.current.reduce((sum, m) => sum + m.ear, 0) / metricsBuffer.current.length;
+          const avgMar = metricsBuffer.current.reduce((sum, m) => sum + m.mar, 0) / metricsBuffer.current.length;
+          
+          setCalibrationData({ baselineEar: avgEar, baselineMar: avgMar });
+          setIsDone(true);
+          toast({
+              title: "Calibration Successful!",
+              description: `Baseline EAR set to ${avgEar.toFixed(2)}`,
+          });
+      } else {
+          setCalibrationFailed(true);
+      }
+    }
+  }, [isCalibrating, progress, setCalibrationData, toast]);
+
+  useEffect(() => {
+    // This effect handles the failure toast separately to avoid render loops
+    if (calibrationFailed) {
+      toast({
+        variant: "destructive",
+        title: "Calibration Failed",
+        description: "Could not detect facial features clearly. Please try again in better lighting.",
+      });
+      onOpenChange(false); // Close dialog on failure
+    }
+  }, [calibrationFailed, onOpenChange, toast]);
   
   useEffect(() => {
     // Reset component state when dialog is closed or opened
@@ -84,6 +100,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
         setIsDone(false);
         setProgress(0);
         setCameraReady(false);
+        setCalibrationFailed(false);
         metricsBuffer.current = [];
       }, 300);
     }
@@ -102,7 +119,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
         <div className="flex flex-col items-center justify-center space-y-4 py-4">
             <WebcamFeed 
                 isActive={open} // Webcam is active whenever the dialog is open
-                isMonitoring={false} // Not for blink/yawn counting
+                isMonitoring={false}
                 onMetricsUpdate={handleMetricsUpdate}
                 onCameraReady={setCameraReady}
                 showOverlay={true} 
