@@ -45,6 +45,10 @@ export interface CalibrationData {
     baselineMar: number | null;
 }
 
+interface EventTimestamp {
+    time: number;
+}
+
 export default function Dashboard() {
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [metrics, setMetrics] = useState<Metrics>({
@@ -77,8 +81,10 @@ export default function Dashboard() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const analysisTimeout = useRef<NodeJS.Timeout | null>(null);
   const lastAlertTime = useRef<number>(0);
-  const totalBlinksRef = useRef(0);
-  const totalYawnsRef = useRef(0);
+  
+  const blinkHistoryRef = useRef<EventTimestamp[]>([]);
+  const yawnHistoryRef = useRef<EventTimestamp[]>([]);
+  const ROLLING_WINDOW_SECONDS = 60;
 
   useEffect(() => {
     setIsClient(true);
@@ -88,15 +94,37 @@ export default function Dashboard() {
     }
   }, []);
 
+  const getDrowsinessScoreFromLevel = (level: string): number => {
+    switch (level) {
+      case 'Alert':
+        return 0;
+      case 'Slightly Drowsy':
+        return 0.33;
+      case 'Moderately Drowsy':
+        return 0.66;
+      case 'Severely Drowsy':
+        return 1.0;
+      default:
+        return 0;
+    }
+  };
+
   const runDrowsinessAnalysis = useCallback(async (currentMetrics: Metrics) => {
     if (!sessionStartTime.current || !isMonitoring) return;
   
-    const elapsedSeconds = (Date.now() - sessionStartTime.current) / 1000;
-    if (elapsedSeconds < 2) return;
-  
-    const blinkRate = (currentMetrics.blinkCount / elapsedSeconds) * 60;
-    const yawnRate = (currentMetrics.yawnCount / elapsedSeconds) * 60;
-  
+    const now = Date.now();
+    const windowStartTime = now - ROLLING_WINDOW_SECONDS * 1000;
+    
+    blinkHistoryRef.current = blinkHistoryRef.current.filter(b => b.time >= windowStartTime);
+    yawnHistoryRef.current = yawnHistoryRef.current.filter(y => y.time >= windowStartTime);
+
+    const blinksInWindow = blinkHistoryRef.current.length;
+    const yawnsInWindow = yawnHistoryRef.current.length;
+
+    const elapsedSeconds = (now - windowStartTime) / 1000;
+    const blinkRate = (blinksInWindow / elapsedSeconds) * 60;
+    const yawnRate = (yawnsInWindow / elapsedSeconds) * 60;
+
     const normalizedEar = calibrationData.baselineEar ? currentMetrics.ear / calibrationData.baselineEar : currentMetrics.ear;
   
     const input: DrowsinessAnalysisInput = {
@@ -110,7 +138,8 @@ export default function Dashboard() {
     try {
       const result = await drowsinessAnalysis(input);
       setAiAnalysis(result);
-      setMetrics(prev => ({...prev, drowsinessScore: result.confidence}));
+      const score = getDrowsinessScoreFromLevel(result.drowsinessLevel);
+      setMetrics(prev => ({...prev, drowsinessScore: score}));
     } catch (error) {
       console.error("AI Analysis failed:", error);
       toast({
@@ -127,9 +156,11 @@ export default function Dashboard() {
         
         if (newMetricsData.blinkCount) {
             updatedMetrics.blinkCount = prevMetrics.blinkCount + newMetricsData.blinkCount;
+            blinkHistoryRef.current.push({ time: Date.now() });
         }
         if (newMetricsData.yawnCount) {
             updatedMetrics.yawnCount = prevMetrics.yawnCount + newMetricsData.yawnCount;
+            yawnHistoryRef.current.push({ time: Date.now() });
         }
         if (newMetricsData.ear !== undefined) {
           updatedMetrics.ear = newMetricsData.ear;
@@ -138,7 +169,6 @@ export default function Dashboard() {
           updatedMetrics.mar = newMetricsData.mar;
         }
 
-        // Debounce the analysis call
         if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
         analysisTimeout.current = setTimeout(() => runDrowsinessAnalysis(updatedMetrics), 1500);
 
@@ -182,8 +212,8 @@ export default function Dashboard() {
     setDrowsinessHistory([]);
     setAiAnalysis(null);
     setShowAlert(false);
-    totalBlinksRef.current = 0;
-    totalYawnsRef.current = 0;
+    blinkHistoryRef.current = [];
+    yawnHistoryRef.current = [];
     lastAlertTime.current = 0;
   };
   
@@ -254,9 +284,9 @@ export default function Dashboard() {
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 flex flex-col gap-6">
             {isClient && <WebcamFeed 
-                            isActive={isMonitoring} 
+                            isActive={isMonitoring || showCalibration} 
                             isMonitoring={isMonitoring}
-                            isCalibrating={false}
+                            isCalibrating={showCalibration}
                             onMetricsUpdate={handleMetricsUpdate} 
                         />}
             <DrowsinessAnalysis analysis={aiAnalysis} />
@@ -306,3 +336,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
