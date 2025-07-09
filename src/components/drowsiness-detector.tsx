@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, type ReactElement } from 'react';
-import { analyzeDrowsiness, type AnalyzeDrowsinessOutput } from '@/ai/flows/drowsiness-analysis';
+import { drowsinessAnalysis, type DrowsinessAnalysisOutput } from '@/ai/flows/drowsiness-analysis';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -56,7 +56,7 @@ export default function DrowsinessDetector(): ReactElement {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<AnalyzeDrowsinessOutput | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<DrowsinessAnalysisOutput | null>(null);
   const [metrics, setMetrics] = useState({
       blinkCount: 0,
       blinkDuration: '0.00',
@@ -97,20 +97,14 @@ export default function DrowsinessDetector(): ReactElement {
         if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
         
         setIsAnalyzing(true);
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const context = canvas.getContext('2d');
-
-        if (context) {
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const photoDataUri = canvas.toDataURL('image/jpeg');
     
           try {
-            const result = await analyzeDrowsiness({ 
-                photoDataUri,
-                context: 'User is being monitored for signs of drowsiness while sitting in front of a computer.'
+            // Dummy values for now, will be replaced with actual mediapipe logic
+            const result = await drowsinessAnalysis({
+                blinkRate: 20,
+                yawnRate: 2,
+                eyeAspectRatio: 0.3,
+                mouthAspectRatio: 0.5
             });
             setMetrics(prev => ({...prev, drowsiness: result.drowsinessLevel}));
             setAnalysisResult(result);
@@ -120,9 +114,6 @@ export default function DrowsinessDetector(): ReactElement {
           } finally {
             setIsAnalyzing(false);
           }
-        } else {
-          setIsAnalyzing(false);
-        }
 
       }, 5000); // Analyze every 5 seconds
     }
@@ -175,9 +166,9 @@ export default function DrowsinessDetector(): ReactElement {
             </CardHeader>
             <CardContent className="flex-1 flex items-center justify-center">
               <div className="relative aspect-video w-full bg-black rounded-md overflow-hidden border">
-                <video ref={videoRef} className={cn("w-full h-full object-cover", { "hidden": !isMonitoring })} autoPlay muted playsInline />
+                <video ref={videoRef} className={cn("w-full h-full object-cover", { "hidden": !hasCameraPermission })} autoPlay muted playsInline />
                 <canvas ref={canvasRef} className="hidden" />
-                {!isMonitoring && (
+                {!isMonitoring && hasCameraPermission && (
                      <div className="absolute inset-0 flex items-center justify-center">
                         <p className="text-muted-foreground">Ready to start monitoring.</p>
                      </div>
@@ -210,14 +201,14 @@ export default function DrowsinessDetector(): ReactElement {
                 <MetricCard icon={Smile} title="Yawn Count" value={metrics.yawnCount} unit="yawns" className="md:col-span-2" />
                 <MetricCard icon={Clock} title="Yawn Duration" value={metrics.yawnDuration} unit="seconds" className="md:col-span-2"/>
                 <MetricCard icon={HeartPulse} title="Heart Rate" value={metrics.heartRate} unit="BPM" />
-                <MetricCard icon={HeartPulse} title="Pulse Rate" value={metrics.pulseRate} unit="BPM" />
-                <MetricCard icon={Wind} title="Resp. Rate" value={metrics.respRate} unit="breaths/min" />
+                <MetricCard icon={HeartPulse} title="Pulse Rate" value={isMonitoring ? metrics.pulseRate: 'N/A'} unit="BPM" />
+                <MetricCard icon={Wind} title="Resp. Rate" value={isMonitoring ? metrics.respRate : 'N/A'} unit="breaths/min" />
                 <div className="p-4 rounded-lg bg-secondary">
                     <div className="flex items-center justify-between text-muted-foreground mb-2">
                         <span className="text-sm font-medium">Drowsiness</span>
                         <BrainCircuit className="w-5 h-5" />
                     </div>
-                    <p className="text-4xl font-bold text-foreground">{isMonitoring ? metrics.drowsiness : 'Low'}</p>
+                    <p className="text-4xl font-bold text-foreground">{isMonitoring ? (analysisResult?.drowsinessLevel || 'Analyzing...') : 'Low'}</p>
                     <p className="text-sm text-muted-foreground">{isMonitoring ? `${drowsinessPercentage}%` : "level"}</p>
                 </div>
             </CardContent>

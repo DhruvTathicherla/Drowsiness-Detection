@@ -1,61 +1,83 @@
 'use server';
-
 /**
- * @fileOverview Drowsiness analysis AI agent.
+ * @fileOverview Analyzes blink rate, yawn rate, Eye Aspect Ratio (EAR), and Mouth Aspect Ratio (MAR) to estimate drowsiness level.
  *
- * - analyzeDrowsiness - A function that handles the drowsiness analysis process.
- * - AnalyzeDrowsinessInput - The input type for the analyzeDrowsiness function.
- * - AnalyzeDrowsinessOutput - The return type for the analyzeDrowsiness function.
+ * - drowsinessAnalysis - A function that handles the drowsiness analysis process.
+ * - DrowsinessAnalysisInput - The input type for the drowsinessAnalysis function.
+ * - DrowsinessAnalysisOutput - The return type for the drowsinessAnalysis function.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-const AnalyzeDrowsinessInputSchema = z.object({
-  photoDataUri: z
+const DrowsinessAnalysisInputSchema = z.object({
+  blinkRate: z.number().describe('The number of blinks per minute.'),
+  yawnRate: z.number().describe('The number of yawns per minute.'),
+  eyeAspectRatio: z.number().describe('The calculated Eye Aspect Ratio (EAR).'),
+  mouthAspectRatio: z.number().describe('The calculated Mouth Aspect Ratio (MAR).'),
+  confoundingCircumstances: z
+    .string()
+    .optional()
+    .describe(
+      'Any confounding circumstances that might affect the interpretation of the metrics (e.g., allergies, dry eyes, talking).'
+    ),
+});
+export type DrowsinessAnalysisInput = z.infer<typeof DrowsinessAnalysisInputSchema>;
+
+const DrowsinessAnalysisOutputSchema = z.object({
+  drowsinessLevel: z
     .string()
     .describe(
-      "A photo of a person's face, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+      'An estimation of the drowsiness level, based on the input metrics and any confounding circumstances. Possible values: Alert, Slightly Drowsy, Moderately Drowsy, Severely Drowsy.'
     ),
-  context: z.string().optional().describe('Any contextual information that might affect drowsiness (e.g., driving, reading, etc.).'),
+  confidence: z
+    .number()
+    .describe('A confidence score (0-1) indicating the certainty of the drowsiness level estimation.'),
+  rationale: z
+    .string()
+    .describe(
+      'Explanation of why the LLM assigned the current drowsiness level, taking into account the inputs, thresholds, and any confounding circumstances.'
+    ),
 });
-export type AnalyzeDrowsinessInput = z.infer<typeof AnalyzeDrowsinessInputSchema>;
+export type DrowsinessAnalysisOutput = z.infer<typeof DrowsinessAnalysisOutputSchema>;
 
-const AnalyzeDrowsinessOutputSchema = z.object({
-  drowsinessLevel: z.string().describe('A qualitative assessment of drowsiness level (e.g., Alert, Slightly Drowsy, Moderately Drowsy, Very Drowsy).'),
-  reason: z.string().describe("Explanation for the assessed drowsiness level, analyzing the person's face for signs of drowsiness like eye closure, yawning, etc."),
-  recommendation: z.string().describe('A recommendation based on the drowsiness level (e.g., Take a break, Adjust environment, etc.).'),
-});
-export type AnalyzeDrowsinessOutput = z.infer<typeof AnalyzeDrowsinessOutputSchema>;
-
-export async function analyzeDrowsiness(input: AnalyzeDrowsinessInput): Promise<AnalyzeDrowsinessOutput> {
-  return analyzeDrowsinessFlow(input);
+export async function drowsinessAnalysis(input: DrowsinessAnalysisInput): Promise<DrowsinessAnalysisOutput> {
+  return drowsinessAnalysisFlow(input);
 }
 
 const prompt = ai.definePrompt({
-  name: 'analyzeDrowsinessPrompt',
-  input: {schema: AnalyzeDrowsinessInputSchema},
-  output: {schema: AnalyzeDrowsinessOutputSchema},
-  prompt: `You are an expert in analyzing drowsiness levels based on a photo of a person's face.
+  name: 'drowsinessAnalysisPrompt',
+  input: {schema: DrowsinessAnalysisInputSchema},
+  output: {schema: DrowsinessAnalysisOutputSchema},
+  prompt: `You are an expert in analyzing drowsiness levels based on several metrics.
 
-  Analyze the provided photo to assess the person's drowsiness level. Look for signs like eye openness (or closure), mouth openness (yawning), head posture, and general facial expression.
+  Given the following metrics, estimate the drowsiness level of the person:
 
-  Photo: {{media url=photoDataUri}}
-  Context: {{context}}
+  Blink Rate: {{blinkRate}} blinks/minute
+  Yawn Rate: {{yawnRate}} yawns/minute
+  Eye Aspect Ratio (EAR): {{eyeAspectRatio}}
+  Mouth Aspect Ratio (MAR): {{mouthAspectRatio}}
 
-  Based on your analysis, provide a drowsiness level, a reason for your assessment, and a recommendation.
+  Consider these general guidelines, but adapt as necessary:
 
-  Drowsiness Level (choose one: Alert, Slightly Drowsy, Moderately Drowsy, Very Drowsy):
-  Reason:
-  Recommendation:
+  - **Alert:** Normal blink rate, low yawn rate, normal EAR and MAR.
+  - **Slightly Drowsy:** Slightly reduced blink rate, slightly increased yawn rate, slightly lower EAR and higher MAR.
+  - **Moderately Drowsy:** Reduced blink rate, increased yawn rate, lower EAR and higher MAR.
+  - **Severely Drowsy:** Significantly reduced blink rate, very high yawn rate, very low EAR and very high MAR.
+
+  Also, take into account any confounding circumstances that could affect the metrics:
+
+  Confounding Circumstances: {{#if confoundingCircumstances}}{{confoundingCircumstances}}{{else}}None{{/if}}
+
+  Given all of the above information, estimate the drowsiness level, and provide a confidence score (0-1) for your estimation and a rationale.
   `,
 });
 
-const analyzeDrowsinessFlow = ai.defineFlow(
+const drowsinessAnalysisFlow = ai.defineFlow(
   {
-    name: 'analyzeDrowsinessFlow',
-    inputSchema: AnalyzeDrowsinessInputSchema,
-    outputSchema: AnalyzeDrowsinessOutputSchema,
+    name: 'drowsinessAnalysisFlow',
+    inputSchema: DrowsinessAnalysisInputSchema,
+    outputSchema: DrowsinessAnalysisOutputSchema,
   },
   async input => {
     const {output} = await prompt(input);
