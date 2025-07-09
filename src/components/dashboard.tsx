@@ -89,9 +89,16 @@ export default function Dashboard() {
   }, []);
   
   const handleMetricsUpdate = useCallback((newMetricsData: Partial<Metrics>) => {
-    setMetrics(prevMetrics => ({ ...prevMetrics, ...newMetricsData }));
-    if(newMetricsData.blinkCount) totalBlinksRef.current += newMetricsData.blinkCount;
-    if(newMetricsData.yawnCount) totalYawnsRef.current += newMetricsData.yawnCount;
+    setMetrics(prevMetrics => {
+        const updatedMetrics = { ...prevMetrics, ...newMetricsData };
+        if (newMetricsData.blinkCount) {
+            updatedMetrics.blinkCount = prevMetrics.blinkCount + 1;
+        }
+        if (newMetricsData.yawnCount) {
+            updatedMetrics.yawnCount = prevMetrics.yawnCount + 1;
+        }
+        return updatedMetrics;
+    });
   }, []);
   
   const runDrowsinessAnalysis = useCallback(async () => {
@@ -100,8 +107,8 @@ export default function Dashboard() {
     const elapsedSeconds = (Date.now() - sessionStartTime.current) / 1000;
     if (elapsedSeconds < 5) return;
 
-    const blinkRate = (totalBlinksRef.current / elapsedSeconds) * 60;
-    const yawnRate = (totalYawnsRef.current / elapsedSeconds) * 60;
+    const blinkRate = (metrics.blinkCount / elapsedSeconds) * 60;
+    const yawnRate = (metrics.yawnCount / elapsedSeconds) * 60;
     
     const normalizedEar = calibrationData.baselineEar ? metrics.ear / calibrationData.baselineEar : metrics.ear;
 
@@ -124,7 +131,7 @@ export default function Dashboard() {
         description: 'Could not get drowsiness analysis from the AI model.',
       });
     }
-  }, [metrics.ear, metrics.mar, toast, calibrationData.baselineEar]);
+  }, [metrics.ear, metrics.mar, metrics.blinkCount, metrics.yawnCount, toast, calibrationData.baselineEar]);
 
   useEffect(() => {
     if (isMonitoring) {
@@ -149,8 +156,8 @@ export default function Dashboard() {
           const newPoint: DrowsinessDataPoint = {
             time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit'}),
             drowsiness: metrics.drowsinessScore,
-            blinks: totalBlinksRef.current,
-            yawns: totalYawnsRef.current,
+            blinks: metrics.blinkCount,
+            yawns: metrics.yawnCount,
           };
           const newHistory = [...prevHistory, newPoint];
           return newHistory.length > 60 ? newHistory.slice(1) : newHistory;
@@ -158,7 +165,7 @@ export default function Dashboard() {
     }, 2000);
 
     return () => clearInterval(historyInterval);
-  }, [isMonitoring, metrics.drowsinessScore]);
+  }, [isMonitoring, metrics.drowsinessScore, metrics.blinkCount, metrics.yawnCount]);
 
   useEffect(() => {
     const now = Date.now();
@@ -203,8 +210,8 @@ export default function Dashboard() {
         const avgDrowsiness = drowsinessHistory.reduce((acc, p) => acc + p.drowsiness, 0) / (drowsinessHistory.length || 1);
         setSessionSummaryData({
           duration: sessionDuration,
-          totalBlinks: totalBlinksRef.current,
-          totalYawns: totalYawnsRef.current,
+          totalBlinks: metrics.blinkCount,
+          totalYawns: metrics.yawnCount,
           avgDrowsiness: avgDrowsiness,
           alerts: drowsinessHistory.filter(p => p.drowsiness > settings.drowsinessThreshold).length,
         });

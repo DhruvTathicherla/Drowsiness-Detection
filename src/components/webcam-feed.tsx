@@ -161,20 +161,30 @@ export default function WebcamFeed({
       }
     }
 
-    setupWebcam();
-
-    return () => {
+    function stopWebcam() {
         if (animationFrameId.current) {
             cancelAnimationFrame(animationFrameId.current);
+            animationFrameId.current = null;
         }
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
         }
         if(videoRef.current) {
             videoRef.current.srcObject = null;
         }
         setStatus("IDLE");
         onCameraReady?.(false);
+    }
+
+    if(isActive) {
+      setupWebcam();
+    } else {
+      stopWebcam();
+    }
+
+    return () => {
+        stopWebcam();
     };
   }, [isActive, onCameraReady, predictLoop, toast]);
 
