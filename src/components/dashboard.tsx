@@ -11,8 +11,8 @@ import SettingsDialog from "@/components/settings-dialog";
 import CalibrationDialog from "./calibration-dialog";
 import SessionSummaryDialog from "./session-summary-dialog";
 import { drowsinessAnalysis } from "@/app/actions";
-import type { DrowsinessAnalysisInput, DrowsinessAnalysisOutput } from "@/ai/flows/drowsiness-analysis";
-import { AlertTriangle, Siren } from "lucide-react";
+import type { DrowsinessAnalysisInput, type DrowsinessAnalysisOutput } from "@/ai/flows/drowsiness-analysis";
+import { Siren } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export interface Metrics {
@@ -174,36 +174,38 @@ export default function Dashboard() {
   };
   
   const handleToggleMonitoring = () => {
-    setIsMonitoring(prev => {
-      const newIsMonitoring = !prev;
-      if (newIsMonitoring) {
-        if (!calibrationData.baselineEar) {
-            toast({
-                variant: "destructive",
-                title: "Calibration Required",
-                description: "Please calibrate the system before starting.",
-            });
-            return false;
-        }
-        sessionStartTime.current = Date.now();
-        resetState();
-      } else {
-        if (sessionStartTime.current) {
-            const sessionDuration = (Date.now() - sessionStartTime.current) / 1000;
-            const avgDrowsiness = drowsinessHistory.reduce((acc, p) => acc + p.drowsiness, 0) / (drowsinessHistory.length || 1);
-            setSessionSummaryData({
-                duration: sessionDuration,
-                totalBlinks: totalBlinksRef.current,
-                totalYawns: totalYawnsRef.current,
-                avgDrowsiness: avgDrowsiness,
-                alerts: drowsinessHistory.filter(p => p.drowsiness > settings.drowsinessThreshold).length,
-            });
-            setShowSummary(true);
-        }
-        sessionStartTime.current = null;
+    const newIsMonitoring = !isMonitoring;
+
+    if (newIsMonitoring) {
+      // Logic to start monitoring
+      if (!calibrationData.baselineEar) {
+        toast({
+          variant: "destructive",
+          title: "Calibration Required",
+          description: "Please calibrate the system before starting.",
+        });
+        return; // Prevent starting
       }
-      return newIsMonitoring;
-    });
+      sessionStartTime.current = Date.now();
+      resetState();
+      setIsMonitoring(true);
+    } else {
+      // Logic to stop monitoring
+      if (sessionStartTime.current) {
+        const sessionDuration = (Date.now() - sessionStartTime.current) / 1000;
+        const avgDrowsiness = drowsinessHistory.reduce((acc, p) => acc + p.drowsiness, 0) / (drowsinessHistory.length || 1);
+        setSessionSummaryData({
+          duration: sessionDuration,
+          totalBlinks: totalBlinksRef.current,
+          totalYawns: totalYawnsRef.current,
+          avgDrowsiness: avgDrowsiness,
+          alerts: drowsinessHistory.filter(p => p.drowsiness > settings.drowsinessThreshold).length,
+        });
+        setShowSummary(true);
+      }
+      sessionStartTime.current = null;
+      setIsMonitoring(false);
+    }
   };
   
   const handleExport = () => {
@@ -234,7 +236,7 @@ export default function Dashboard() {
       <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 flex flex-col gap-6">
-            {isClient && <WebcamFeed isMonitoring={isMonitoring} isCalibrating={isCalibrating} onMetricsUpdate={handleMetricsUpdate} />}
+            {isClient && <WebcamFeed isMonitoring={isMonitoring} isCalibrating={isCalibrating} onMetricsUpdate={handleMetricsUpdate} onCameraReady={() => {}} />}
             <DrowsinessAnalysis analysis={aiAnalysis} />
           </div>
           <div className="lg:col-span-2 flex flex-col gap-6">
@@ -246,7 +248,7 @@ export default function Dashboard() {
 
       {/* Drowsiness Alert */}
       <AlertDialog open={showAlert} onOpenChange={setShowAlert}>
-        <AlertDialogContent className="data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 animate-pulse-bg">
+        <AlertDialogContent className="data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-destructive flex items-center gap-2 text-2xl">
               <Siren className="w-8 h-8"/>
