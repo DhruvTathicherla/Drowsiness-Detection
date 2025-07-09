@@ -120,6 +120,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
             <WebcamFeed 
                 isActive={open} // Webcam is active whenever the dialog is open
                 isMonitoring={false}
+                isCalibrating={isCalibrating}
                 onMetricsUpdate={handleMetricsUpdate}
                 onCameraReady={setCameraReady}
                 showOverlay={true} 
