@@ -236,7 +236,7 @@ export default function Dashboard() {
       <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 flex flex-col gap-6">
-            {isClient && <WebcamFeed isMonitoring={isMonitoring} onMetricsUpdate={handleMetricsUpdate} />}
+            {isClient && <WebcamFeed isMonitoring={isMonitoring} isCalibrating={false} onMetricsUpdate={handleMetricsUpdate} />}
             <DrowsinessAnalysis analysis={aiAnalysis} />
           </div>
           <div className="lg:col-span-2 flex flex-col gap-6">

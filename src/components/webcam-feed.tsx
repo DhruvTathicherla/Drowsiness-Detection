@@ -15,7 +15,7 @@ const EAR_CONSEC_FRAMES = 2;
 const MAR_THRESHOLD = 0.7; 
 const MAR_CONSEC_FRAMES = 15;
 
-type ComponentState = "IDLE" | "INITIALIZING_MODEL" | "INITIALIZING_CAMERA" | "MONITORING" | "ERROR";
+type ComponentState = "IDLE" | "INITIALIZING_MODEL" | "INITIALIZING_CAMERA" | "READY" | "MONITORING" | "ERROR";
 
 interface WebcamFeedProps {
   isMonitoring: boolean;
@@ -32,7 +32,7 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
   const faceLandmarkerRef = useRef<FaceLandmarker | null>(null);
   
   const [status, setStatus] = useState<ComponentState>("IDLE");
-  const [statusMessage, setStatusMessage] = useState("Ready to start monitoring.");
+  const [statusMessage, setStatusMessage] = useState("Initializing...");
 
   const { toast } = useToast();
 
@@ -59,18 +59,17 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
         });
         if (!isCancelled) {
           faceLandmarkerRef.current = landmarker;
-          setStatus("IDLE");
-          setStatusMessage("AI model loaded. Ready.");
+          setStatus("IDLE"); // Ready to initialize camera now
         }
       } catch (error) {
         if (!isCancelled) {
           console.error("Failed to load FaceLandmarker model:", error);
           setStatus("ERROR");
-          setStatusMessage("Could not load AI model. Please refresh the page.");
+          setStatusMessage("Could not load AI model.");
           toast({
             variant: "destructive",
             title: "Model Loading Failed",
-            description: "The AI model for face detection could not be loaded. Please check your network or refresh the page."
+            description: "The AI model for face detection could not be loaded."
           });
         }
       }
@@ -86,15 +85,9 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
     const video = videoRef.current;
     const faceLandmarker = faceLandmarkerRef.current;
     const canvas = canvasRef.current;
-    
-    // Condition to continue the loop
-    const shouldBeRunning = isMonitoring || isCalibrating;
 
-    if (!video || !faceLandmarker || !canvas || video.paused || video.ended || video.readyState < 2 || !shouldBeRunning) {
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-        animationFrameId.current = null;
-      }
+    if (!video || !faceLandmarker || !canvas || video.paused || video.ended || video.readyState < 2) {
+      animationFrameId.current = requestAnimationFrame(predictLoop);
       return;
     }
     
@@ -125,26 +118,28 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
         
         let newMetrics: Partial<Metrics> = { ear: avgEAR, mar: mar };
 
-        if (avgEAR < EAR_THRESHOLD) {
-          eyeState.current.framesClosed++;
-          if (eyeState.current.framesClosed === 1) eyeState.current.blinkStartTime = performance.now();
-        } else {
-          if (eyeState.current.framesClosed >= EAR_CONSEC_FRAMES) {
-            const blinkDuration = (performance.now() - eyeState.current.blinkStartTime) / 1000;
-            newMetrics = {...newMetrics, blinkCount: 1, blinkDuration };
-          }
-          eyeState.current.framesClosed = 0;
-        }
-
-        if (mar > MAR_THRESHOLD) {
-          yawnState.current.framesOpen++;
-          if (yawnState.current.framesOpen === 1) yawnState.current.yawnStartTime = performance.now();
-        } else {
-          if (yawnState.current.framesOpen >= MAR_CONSEC_FRAMES) {
-            const yawnDuration = (performance.now() - yawnState.current.yawnStartTime) / 1000;
-             newMetrics = {...newMetrics, yawnCount: 1, yawnDuration };
-          }
-          yawnState.current.framesOpen = 0;
+        if(isMonitoring) { // Only calculate blinks/yawns if actually monitoring
+            if (avgEAR < EAR_THRESHOLD) {
+              eyeState.current.framesClosed++;
+              if (eyeState.current.framesClosed === 1) eyeState.current.blinkStartTime = performance.now();
+            } else {
+              if (eyeState.current.framesClosed >= EAR_CONSEC_FRAMES) {
+                const blinkDuration = (performance.now() - eyeState.current.blinkStartTime) / 1000;
+                newMetrics = {...newMetrics, blinkCount: 1, blinkDuration };
+              }
+              eyeState.current.framesClosed = 0;
+            }
+    
+            if (mar > MAR_THRESHOLD) {
+              yawnState.current.framesOpen++;
+              if (yawnState.current.framesOpen === 1) yawnState.current.yawnStartTime = performance.now();
+            } else {
+              if (yawnState.current.framesOpen >= MAR_CONSEC_FRAMES) {
+                const yawnDuration = (performance.now() - yawnState.current.yawnStartTime) / 1000;
+                 newMetrics = {...newMetrics, yawnCount: 1, yawnDuration };
+              }
+              yawnState.current.framesOpen = 0;
+            }
         }
         onMetricsUpdate(newMetrics);
       }
@@ -155,14 +150,16 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
     }
     
     animationFrameId.current = requestAnimationFrame(predictLoop);
-  }, [onMetricsUpdate, showOverlay, isMonitoring, isCalibrating]);
+  }, [onMetricsUpdate, showOverlay, isMonitoring]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
     const videoElement = videoRef.current;
+    let localAnimationFrameId: number | null = null;
+    
     const shouldBeRunning = isMonitoring || isCalibrating;
 
-    const startWebcam = async () => {
+    const startCamera = async () => {
       if (!faceLandmarkerRef.current || !videoElement) return;
 
       setStatus('INITIALIZING_CAMERA');
@@ -171,30 +168,28 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
         videoElement.srcObject = stream;
-
-        const onCanPlay = () => {
-            if (!videoElement) return;
+        
+        const onLoadedData = () => {
+            if (!videoElement || !canvasRef.current) return;
             videoElement.play();
-            const canvas = canvasRef.current;
-            if(canvas) {
-                canvas.width = videoElement.videoWidth;
-                canvas.height = videoElement.videoHeight;
-            }
-
+            canvasRef.current.width = videoElement.videoWidth;
+            canvasRef.current.height = videoElement.videoHeight;
             setStatus("MONITORING");
             setStatusMessage("Monitoring active");
             onCameraReady?.(true);
 
-            if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
-            animationFrameId.current = requestAnimationFrame(predictLoop);
-        }
-        videoElement.addEventListener('canplay', onCanPlay);
+            // Start the prediction loop
+            localAnimationFrameId = requestAnimationFrame(predictLoop);
+            animationFrameId.current = localAnimationFrameId;
+        };
+
+        videoElement.addEventListener('loadeddata', onLoadedData);
       
       } catch (err) {
         console.error("Failed to start monitoring:", err);
         setStatus("ERROR");
+        setStatusMessage("Camera permission denied.");
         onCameraReady?.(false);
-        setStatusMessage("Camera permission denied. Please enable it to continue.");
         toast({
           variant: "destructive",
           title: "Camera Access Denied",
@@ -203,9 +198,9 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
       }
     };
 
-    const stopWebcam = () => {
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
+    const stopCamera = () => {
+      if (localAnimationFrameId) {
+        cancelAnimationFrame(localAnimationFrameId);
         animationFrameId.current = null;
       }
       if (videoElement && videoElement.srcObject) {
@@ -217,29 +212,29 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
         setStatus("IDLE");
         setStatusMessage("Ready.");
       }
-      onCameraReady?.(false);
+       onCameraReady?.(false);
     };
 
     if (shouldBeRunning) {
-      startWebcam();
+      startCamera();
     } else {
-      stopWebcam();
+      stopCamera();
     }
 
     return () => {
-      stopWebcam();
+        stopCamera();
     };
-  }, [isMonitoring, isCalibrating, predictLoop, onCameraReady, toast, status]);
-
+  }, [isMonitoring, isCalibrating, predictLoop, onCameraReady, toast]);
 
   const showLoader = status === 'INITIALIZING_MODEL' || status === 'INITIALIZING_CAMERA';
+  const showOverlayText = !isMonitoring && !isCalibrating && status !== 'MONITORING';
   
   return (
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <Video />
-          <span>Live Feed</span>
+          <span>{isCalibrating ? 'Calibration Feed' : 'Live Feed'}</span>
         </CardTitle>
         <CardDescription>Your video is processed locally and never uploaded.</CardDescription>
       </CardHeader>
@@ -254,7 +249,7 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
             style={{ transform: 'scaleX(-1)' }}
           />
            <canvas ref={canvasRef} className="w-full h-full rounded-md absolute top-0 left-0" style={{ transform: 'scaleX(-1)' }}/>
-          {(!isMonitoring && !isCalibrating && status !== 'MONITORING') && (
+          {(showOverlayText || showLoader) && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white rounded-lg p-4 text-center z-10">
               {showLoader && <Loader2 className="h-8 w-8 animate-spin mb-2" />}
               <p className="font-medium">{statusMessage}</p>

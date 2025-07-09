@@ -40,14 +40,15 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
             clearInterval(timer);
             setIsCalibrating(false);
             
-            if(earValues.current.length > 0 && marValues.current.length > 0) {
+            if(earValues.current.length > 0) {
                 const avgEar = earValues.current.reduce((a, b) => a + b, 0) / earValues.current.length;
-                const avgMar = marValues.current.reduce((a, b) => a + b, 0) / marValues.current.length;
+                // MAR baseline is less critical but good to have
+                const avgMar = marValues.current.length > 0 ? marValues.current.reduce((a, b) => a + b, 0) / marValues.current.length : 0;
                 setCalibrationData({ baselineEar: avgEar, baselineMar: avgMar });
                 setIsDone(true);
                  toast({
                     title: "Calibration Successful!",
-                    description: `Baseline EAR: ${avgEar.toFixed(2)}, MAR: ${avgMar.toFixed(2)}`,
+                    description: `Baseline EAR: ${avgEar.toFixed(2)}`,
                 });
             } else {
                 toast({
@@ -61,7 +62,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
           }
           if (localMetrics.ear > 0) { // Only need EAR for baseline
             earValues.current.push(localMetrics.ear);
-            marValues.current.push(localMetrics.mar); // still collect mar for potential future use
+            marValues.current.push(localMetrics.mar); 
           }
           return prev + (100 / 60); // ~3 seconds at 20fps
         });
@@ -71,8 +72,8 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
   }, [isCalibrating, cameraReady, localMetrics, setCalibrationData, onOpenChange, toast]);
   
   useEffect(() => {
+    // Reset component state when dialog is closed
     if(!open) {
-      // Reset state on close
       setIsCalibrating(false);
       setIsDone(false);
       setProgress(0);
@@ -91,17 +92,15 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
         </DialogHeader>
 
         <div className="flex flex-col items-center justify-center space-y-4 py-4">
-            <div className="relative w-full aspect-video rounded-lg overflow-hidden border bg-black">
-               {open && (
-                  <WebcamFeed 
-                    isMonitoring={false}
-                    isCalibrating={isCalibrating || (open && !isDone)} // Activate webcam when dialog is open and not finished
-                    onMetricsUpdate={(m) => setLocalMetrics(m as any)}
-                    onCameraReady={setCameraReady}
-                    showOverlay={true} 
-                  />
-               )}
-            </div>
+           {open && (
+              <WebcamFeed 
+                isMonitoring={false} // Main dashboard monitoring is off
+                isCalibrating={true} // Special calibration mode is on
+                onMetricsUpdate={(m) => setLocalMetrics(m as any)}
+                onCameraReady={setCameraReady}
+                showOverlay={true} 
+              />
+           )}
             
             {isDone ? (
                 <div className="text-center space-y-2">
