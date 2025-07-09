@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -69,7 +70,6 @@ export default function Dashboard() {
     audibleAlerts: true,
   });
   const [calibrationData, setCalibrationData] = useState<CalibrationData>({ baselineEar: null, baselineMar: null });
-  const [isCalibrating, setIsCalibrating] = useState(false);
   const [isClient, setIsClient] = useState(false);
   
   const { toast } = useToast();
@@ -236,7 +236,7 @@ export default function Dashboard() {
       <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 flex flex-col gap-6">
-            {isClient && <WebcamFeed isMonitoring={isMonitoring} isCalibrating={isCalibrating} onMetricsUpdate={handleMetricsUpdate} onCameraReady={() => {}} />}
+            {isClient && <WebcamFeed isMonitoring={isMonitoring} onMetricsUpdate={handleMetricsUpdate} />}
             <DrowsinessAnalysis analysis={aiAnalysis} />
           </div>
           <div className="lg:col-span-2 flex flex-col gap-6">
@@ -273,8 +273,6 @@ export default function Dashboard() {
       <CalibrationDialog
         open={showCalibration}
         onOpenChange={setShowCalibration}
-        isCalibrating={isCalibrating}
-        setIsCalibrating={setIsCalibrating}
         setCalibrationData={setCalibrationData}
       />
       <SessionSummaryDialog

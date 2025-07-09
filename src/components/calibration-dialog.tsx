@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -12,16 +13,15 @@ import type { CalibrationData } from "./dashboard";
 interface CalibrationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  isCalibrating: boolean;
-  setIsCalibrating: (calibrating: boolean) => void;
   setCalibrationData: (data: CalibrationData) => void;
 }
 
-export default function CalibrationDialog({ open, onOpenChange, isCalibrating, setIsCalibrating, setCalibrationData }: CalibrationDialogProps) {
+export default function CalibrationDialog({ open, onOpenChange, setCalibrationData }: CalibrationDialogProps) {
   const [progress, setProgress] = useState(0);
   const [isDone, setIsDone] = useState(false);
   const [localMetrics, setLocalMetrics] = useState({ ear: 0, mar: 0 });
   const [cameraReady, setCameraReady] = useState(false);
+  const [isCalibrating, setIsCalibrating] = useState(false);
   
   const earValues = useRef<number[]>([]);
   const marValues = useRef<number[]>([]);
@@ -94,8 +94,8 @@ export default function CalibrationDialog({ open, onOpenChange, isCalibrating, s
             <div className="relative w-full aspect-video rounded-lg overflow-hidden border bg-black">
                {open && (
                   <WebcamFeed 
-                    isMonitoring={open} // The feed should be active whenever the dialog is open
-                    isCalibrating={true} // Special mode for calibration
+                    isMonitoring={false}
+                    isCalibrating={isCalibrating || open && !isDone} // Activate webcam when dialog is open and not finished
                     onMetricsUpdate={(m) => setLocalMetrics(m as any)}
                     onCameraReady={setCameraReady}
                     showOverlay={true} 

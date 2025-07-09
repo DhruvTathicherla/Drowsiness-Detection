@@ -150,7 +150,7 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
     let isCancelled = false;
     
     const startWebcam = async () => {
-        if (!faceLandmarkerRef.current || status === "MONITORING") return;
+        if (!faceLandmarkerRef.current || isCancelled) return;
         
         setStatus('INITIALIZING_CAMERA');
         setStatusMessage("Initializing camera...");
@@ -201,11 +201,13 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
             cancelAnimationFrame(animationFrameId.current);
             animationFrameId.current = null;
         }
-        stream?.getTracks().forEach(track => track.stop());
+        
         const video = videoRef.current;
         if (video && video.srcObject) {
+            (video.srcObject as MediaStream).getTracks().forEach(track => track.stop());
             video.srcObject = null;
         }
+
         onCameraReady?.(false);
         if (status !== 'ERROR' && status !== 'INITIALIZING_MODEL') {
           setStatus("IDLE");
@@ -223,7 +225,7 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
         isCancelled = true;
         stopWebcam();
     };
-  }, [isMonitoring, isCalibrating, onCameraReady, predictLoop, status, toast, isCalibrating]);
+  }, [isMonitoring, isCalibrating, onCameraReady, predictLoop, status, toast]);
 
 
   const showLoader = status === 'INITIALIZING_MODEL' || status === 'INITIALIZING_CAMERA';
@@ -248,7 +250,7 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
             style={{ transform: 'scaleX(-1)' }}
           />
            <canvas ref={canvasRef} className="w-full h-full rounded-md absolute top-0 left-0" style={{ transform: 'scaleX(-1)' }}/>
-          {(showOverlay && status !== 'MONITORING') && (
+          {(status !== 'MONITORING') && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white rounded-lg p-4 text-center z-10">
               {showLoader && <Loader2 className="h-8 w-8 animate-spin mb-2" />}
               <p className="font-medium">{statusMessage}</p>
