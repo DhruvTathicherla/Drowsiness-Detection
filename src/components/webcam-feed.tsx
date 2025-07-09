@@ -91,6 +91,10 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
     const shouldBeRunning = isMonitoring || isCalibrating;
 
     if (!video || !faceLandmarker || !canvas || video.paused || video.ended || video.readyState < 2 || !shouldBeRunning) {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+      }
       return;
     }
     
@@ -150,97 +154,82 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
       canvasCtx.restore();
     }
     
-    // Continue the loop
     animationFrameId.current = requestAnimationFrame(predictLoop);
   }, [onMetricsUpdate, showOverlay, isMonitoring, isCalibrating]);
 
-  // Effect to manage camera stream and prediction loop
   useEffect(() => {
     let stream: MediaStream | null = null;
-    let isCancelled = false;
+    const videoElement = videoRef.current;
+    const shouldBeRunning = isMonitoring || isCalibrating;
 
     const startWebcam = async () => {
-        if (!faceLandmarkerRef.current || isCancelled) return;
-        
-        setStatus('INITIALIZING_CAMERA');
-        setStatusMessage("Initializing camera...");
+      if (!faceLandmarkerRef.current || !videoElement) return;
 
-        eyeState.current = { framesClosed: 0, blinkStartTime: 0 };
-        yawnState.current = { framesOpen: 0, yawnStartTime: 0 };
+      setStatus('INITIALIZING_CAMERA');
+      setStatusMessage("Initializing camera...");
 
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
-            if (isCancelled) {
-              stream.getTracks().forEach(track => track.stop());
-              return;
-            }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+        videoElement.srcObject = stream;
 
-            const video = videoRef.current;
+        const onCanPlay = () => {
+            if (!videoElement) return;
+            videoElement.play();
             const canvas = canvasRef.current;
-
-            if (video && canvas) {
-                video.srcObject = stream;
-                video.onloadedmetadata = () => {
-                  if (isCancelled) return;
-                  video.play();
-                  canvas.width = video.videoWidth;
-                  canvas.height = video.videoHeight;
-                  setStatus("MONITORING");
-                  setStatusMessage("Monitoring active");
-                  onCameraReady?.(true);
-                  // Start the prediction loop
-                  if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
-                  animationFrameId.current = requestAnimationFrame(predictLoop);
-                };
+            if(canvas) {
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
             }
-        } catch (error) {
-            console.error("Failed to start monitoring:", error);
-            if(isCancelled) return;
-            setStatus("ERROR");
-            onCameraReady?.(false);
-            setStatusMessage("Camera permission denied. Please enable it to continue.");
-            toast({
-              variant: "destructive",
-              title: "Camera Access Denied",
-              description: "Please enable camera permissions in your browser settings to use this feature."
-            });
+
+            setStatus("MONITORING");
+            setStatusMessage("Monitoring active");
+            onCameraReady?.(true);
+
+            if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+            animationFrameId.current = requestAnimationFrame(predictLoop);
         }
+        videoElement.addEventListener('canplay', onCanPlay);
+      
+      } catch (err) {
+        console.error("Failed to start monitoring:", err);
+        setStatus("ERROR");
+        onCameraReady?.(false);
+        setStatusMessage("Camera permission denied. Please enable it to continue.");
+        toast({
+          variant: "destructive",
+          title: "Camera Access Denied",
+          description: "Please enable camera permissions in your browser settings to use this feature."
+        });
+      }
     };
 
     const stopWebcam = () => {
-      // Stop the prediction loop
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
         animationFrameId.current = null;
       }
-      
-      // Stop the camera stream
-      const video = videoRef.current;
-      if (video && video.srcObject) {
-          (video.srcObject as MediaStream).getTracks().forEach(track => track.stop());
-          video.srcObject = null;
+      if (videoElement && videoElement.srcObject) {
+        const mediaStream = videoElement.srcObject as MediaStream;
+        mediaStream.getTracks().forEach(track => track.stop());
+        videoElement.srcObject = null;
       }
-
-      // Reset state if not in an error condition
       if (status !== 'ERROR' && status !== 'INITIALIZING_MODEL') {
         setStatus("IDLE");
         setStatusMessage("Ready.");
       }
       onCameraReady?.(false);
     };
-    
-    const shouldBeRunning = isMonitoring || isCalibrating;
+
     if (shouldBeRunning) {
-        startWebcam();
+      startWebcam();
+    } else {
+      stopWebcam();
     }
 
-    // Cleanup function to stop webcam when component unmounts or monitoring stops
     return () => {
-        isCancelled = true;
-        stopWebcam();
+      stopWebcam();
     };
-  // This hook should ONLY re-run when isMonitoring or isCalibrating changes.
-  }, [isMonitoring, isCalibrating, predictLoop, onCameraReady, toast]);
+  }, [isMonitoring, isCalibrating, predictLoop, onCameraReady, toast, status]);
 
 
   const showLoader = status === 'INITIALIZING_MODEL' || status === 'INITIALIZING_CAMERA';
@@ -265,7 +254,7 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
             style={{ transform: 'scaleX(-1)' }}
           />
            <canvas ref={canvasRef} className="w-full h-full rounded-md absolute top-0 left-0" style={{ transform: 'scaleX(-1)' }}/>
-          {(status !== 'MONITORING' || !isMonitoring && !isCalibrating) && (
+          {(!isMonitoring && !isCalibrating && status !== 'MONITORING') && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white rounded-lg p-4 text-center z-10">
               {showLoader && <Loader2 className="h-8 w-8 animate-spin mb-2" />}
               <p className="font-medium">{statusMessage}</p>
