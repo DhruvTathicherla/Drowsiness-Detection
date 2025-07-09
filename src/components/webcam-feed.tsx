@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
@@ -65,7 +66,7 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
     };
     createFaceLandmarker();
     return () => faceLandmarkerRef.current?.close();
-  }, [toast, isCalibrating]);
+  }, [isCalibrating]);
   
   const predictLoop = useCallback(() => {
     const video = videoRef.current;
@@ -74,7 +75,7 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
     const canvasCtx = canvas?.getContext("2d");
 
     if (!video || !faceLandmarker || !canvas || !canvasCtx || video.paused || video.ended || video.readyState < 2) {
-      if (isMonitoring || isCalibrating) animationFrameId.current = requestAnimationFrame(predictLoop);
+      animationFrameId.current = requestAnimationFrame(predictLoop);
       return;
     }
     
@@ -134,72 +135,78 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
       canvasCtx.restore();
     }
     
-    if (isMonitoring || isCalibrating) {
-      animationFrameId.current = requestAnimationFrame(predictLoop);
-    }
-  }, [onMetricsUpdate, isMonitoring, isCalibrating, showOverlay]);
+    animationFrameId.current = requestAnimationFrame(predictLoop);
+  }, [onMetricsUpdate, showOverlay]);
 
-  const startMonitoring = useCallback(async () => {
-    if (status === 'MONITORING' || status === 'INITIALIZING_CAMERA') return;
-    setStatus('INITIALIZING_CAMERA');
-    setStatusMessage("Initializing camera...");
-
-    eyeState.current = { framesClosed: 0, blinkStartTime: 0 };
-    yawnState.current = { framesOpen: 0, yawnStartTime: 0 };
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (video && canvas) {
-        video.srcObject = stream;
-        video.onloadedmetadata = () => {
-          video.play();
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          setStatus("MONITORING");
-          setStatusMessage("Monitoring active");
-          onCameraReady?.(true);
-          animationFrameId.current = requestAnimationFrame(predictLoop);
-        };
-      }
-    } catch (error) {
-      console.error("Failed to start monitoring:", error);
-      setStatus("ERROR");
-      onCameraReady?.(false);
-      setStatusMessage("Camera permission denied. Please enable it to continue.");
-    }
-  }, [status, onCameraReady, predictLoop]);
-
-  const stopMonitoring = useCallback(() => {
-    if (animationFrameId.current) {
-      cancelAnimationFrame(animationFrameId.current);
-      animationFrameId.current = null;
-    }
-    const video = videoRef.current;
-    if (video && video.srcObject) {
-      (video.srcObject as MediaStream).getTracks().forEach(track => track.stop());
-      video.srcObject = null;
-    }
-    onCameraReady?.(false);
-    if (status !== 'ERROR' && status !== 'INITIALIZING_MODEL') {
-      setStatus("IDLE");
-      setStatusMessage("Ready to start monitoring.");
-    }
-  }, [onCameraReady]);
 
   useEffect(() => {
-    const shouldBeMonitoring = isMonitoring || isCalibrating;
-    if (shouldBeMonitoring) {
-      if (status === 'IDLE' && faceLandmarkerRef.current) {
-        startMonitoring();
-      }
+    let videoStream: MediaStream | null = null;
+    
+    const startWebcam = async () => {
+        if (status === 'MONITORING' || status === 'INITIALIZING_CAMERA' || !faceLandmarkerRef.current) return;
+        setStatus('INITIALIZING_CAMERA');
+        setStatusMessage("Initializing camera...");
+
+        eyeState.current = { framesClosed: 0, blinkStartTime: 0 };
+        yawnState.current = { framesOpen: 0, yawnStartTime: 0 };
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+            videoStream = stream;
+            const video = videoRef.current;
+            const canvas = canvasRef.current;
+            if (video && canvas) {
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    setStatus("MONITORING");
+                    setStatusMessage("Monitoring active");
+                    onCameraReady?.(true);
+                    animationFrameId.current = requestAnimationFrame(predictLoop);
+                };
+            }
+        } catch (error) {
+            console.error("Failed to start monitoring:", error);
+            setStatus("ERROR");
+            onCameraReady?.(false);
+            setStatusMessage("Camera permission denied. Please enable it to continue.");
+        }
+    };
+
+    const stopWebcam = () => {
+        if (animationFrameId.current) {
+            cancelAnimationFrame(animationFrameId.current);
+            animationFrameId.current = null;
+        }
+        if (videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+        }
+        const video = videoRef.current;
+        if (video && video.srcObject) {
+            video.srcObject = null;
+        }
+        
+        onCameraReady?.(false);
+        if (status !== 'ERROR' && status !== 'INITIALIZING_MODEL') {
+          setStatus("IDLE");
+          if (!isCalibrating) setStatusMessage("Ready to start monitoring.");
+        }
+    };
+    
+    if (isMonitoring || isCalibrating) {
+        startWebcam();
     } else {
-      stopMonitoring();
+        stopWebcam();
     }
-    // Cleanup on unmount
-    return () => stopMonitoring();
-  }, [isMonitoring, isCalibrating, status, startMonitoring, stopMonitoring]);
+
+    return () => {
+        stopWebcam();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMonitoring, isCalibrating, predictLoop]);
+
 
   const showLoader = status === 'INITIALIZING_MODEL' || status === 'INITIALIZING_CAMERA';
   
