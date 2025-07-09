@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, Camera } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 import WebcamFeed from "./webcam-feed";
 import { useToast } from "@/hooks/use-toast";
 import type { CalibrationData } from "./dashboard";
@@ -59,9 +59,9 @@ export default function CalibrationDialog({ open, onOpenChange, isCalibrating, s
             }
             return 100;
           }
-          if (localMetrics.ear > 0 && localMetrics.mar > 0) {
+          if (localMetrics.ear > 0) { // Only need EAR for baseline
             earValues.current.push(localMetrics.ear);
-            marValues.current.push(localMetrics.mar);
+            marValues.current.push(localMetrics.mar); // still collect mar for potential future use
           }
           return prev + (100 / 60); // ~3 seconds at 20fps
         });
@@ -94,11 +94,11 @@ export default function CalibrationDialog({ open, onOpenChange, isCalibrating, s
             <div className="relative w-full aspect-video rounded-lg overflow-hidden border bg-black">
                {open && (
                   <WebcamFeed 
-                    isMonitoring={true} // Use isMonitoring to turn on the feed
+                    isMonitoring={open} // The feed should be active whenever the dialog is open
                     isCalibrating={true} // Special mode for calibration
                     onMetricsUpdate={(m) => setLocalMetrics(m as any)}
                     onCameraReady={setCameraReady}
-                    showOverlay={false} // Don't show the default overlay
+                    showOverlay={true} 
                   />
                )}
             </div>
