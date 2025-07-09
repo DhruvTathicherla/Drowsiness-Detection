@@ -125,18 +125,11 @@ export default function Dashboard() {
 
     const blinksInWindow = blinkHistoryRef.current.length;
     const yawnsInWindow = yawnHistoryRef.current.length;
-
-    const elapsedSeconds = (now - (sessionStartTime.current > windowStartTime ? sessionStartTime.current : windowStartTime)) / 1000;
-    
-    const blinkRate = elapsedSeconds > 0 ? (blinksInWindow / elapsedSeconds) * 60 : 0;
-    const yawnRate = elapsedSeconds > 0 ? (yawnsInWindow / elapsedSeconds) * 60 : 0;
-
-    const normalizedEar = calibrationData.baselineEar ? currentMetrics.ear / calibrationData.baselineEar : currentMetrics.ear;
   
     const input: DrowsinessAnalysisInput = {
-      blinkRate: isNaN(blinkRate) ? 0 : parseFloat(blinkRate.toFixed(2)),
-      yawnRate: isNaN(yawnRate) ? 0 : parseFloat(yawnRate.toFixed(2)),
-      eyeAspectRatio: isNaN(normalizedEar) ? 0 : parseFloat(normalizedEar.toFixed(3)),
+      blinkRate: blinksInWindow,
+      yawnRate: yawnsInWindow,
+      eyeAspectRatio: isNaN(currentMetrics.ear) ? 0 : parseFloat(currentMetrics.ear.toFixed(3)),
       mouthAspectRatio: isNaN(currentMetrics.mar) ? 0 : currentMetrics.mar,
       confoundingCircumstances: "None",
     };
@@ -154,7 +147,7 @@ export default function Dashboard() {
         description: 'Could not get drowsiness analysis from the AI model.',
       });
     }
-  }, [isMonitoring, toast, calibrationData.baselineEar]);
+  }, [isMonitoring, toast]);
 
   const handleMetricsUpdate = useCallback((newMetricsData: Partial<Metrics>) => {
     setMetrics(prevMetrics => {
@@ -182,7 +175,9 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isMonitoring) {
         setShowFlashingAlert(false);
-        setAiAnalysis(null);
+        if(aiAnalysis){
+          setAiAnalysis(null);
+        }
         return;
     };
 
@@ -208,11 +203,14 @@ export default function Dashboard() {
         clearInterval(analysisInterval);
         clearInterval(historyInterval);
     }
-  }, [isMonitoring, runDrowsinessAnalysis]);
+  }, [isMonitoring, runDrowsinessAnalysis, aiAnalysis]);
 
   useEffect(() => {
     const now = Date.now();
-    if (isMonitoring && aiAnalysis && aiAnalysis.drowsinessLevel !== 'Alert' && (now - lastAlertTime.current > 30000)) { // 30s cooldown
+    const alertLevel = aiAnalysis?.drowsinessLevel;
+    const shouldAlert = alertLevel === 'Moderately Drowsy' || alertLevel === 'Severely Drowsy';
+
+    if (isMonitoring && shouldAlert && (now - lastAlertTime.current > 30000)) { // 30s cooldown
       setShowFlashingAlert(true);
       if (settings.audibleAlerts && audioRef.current) {
         audioRef.current.play().catch(e => console.error("Error playing sound:", e));
@@ -266,6 +264,7 @@ export default function Dashboard() {
       }
       sessionStartTime.current = null;
       setIsMonitoring(false);
+      resetState(); // Reset state after stopping
     }
   };
   
@@ -299,7 +298,7 @@ export default function Dashboard() {
         isExportDisabled={drowsinessHistory.length === 0}
       />
       
-      <FlashingAlert isAlerting={showFlashingAlert} alertText={aiAnalysis?.drowsinessLevel || "Drowsiness Detected"} />
+      <FlashingAlert isAlerting={showFlashingAlert} level={aiAnalysis?.drowsinessLevel} />
 
       <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
         <div className="grid gap-6 lg:grid-cols-5">
