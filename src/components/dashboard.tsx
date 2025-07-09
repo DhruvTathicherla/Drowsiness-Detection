@@ -82,7 +82,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     setIsClient(true);
-    // Preload audio
     if (typeof Audio !== "undefined") {
       audioRef.current = new Audio("/alert.mp3");
       audioRef.current.preload = "auto";
@@ -99,18 +98,17 @@ export default function Dashboard() {
     if (!sessionStartTime.current) return;
 
     const elapsedSeconds = (Date.now() - sessionStartTime.current) / 1000;
-    if (elapsedSeconds < 5) return; // Don't analyze immediately
+    if (elapsedSeconds < 5) return;
 
     const blinkRate = (totalBlinksRef.current / elapsedSeconds) * 60;
     const yawnRate = (totalYawnsRef.current / elapsedSeconds) * 60;
     
-    // Use baseline EAR to normalize the current EAR reading
     const normalizedEar = calibrationData.baselineEar ? metrics.ear / calibrationData.baselineEar : metrics.ear;
 
     const input: DrowsinessAnalysisInput = {
       blinkRate: isNaN(blinkRate) ? 0 : parseFloat(blinkRate.toFixed(2)),
       yawnRate: isNaN(yawnRate) ? 0 : parseFloat(yawnRate.toFixed(2)),
-      eyeAspectRatio: parseFloat(normalizedEar.toFixed(3)), // Send normalized EAR
+      eyeAspectRatio: parseFloat(normalizedEar.toFixed(3)),
       mouthAspectRatio: metrics.mar,
       confoundingCircumstances: "None",
     };
@@ -128,10 +126,9 @@ export default function Dashboard() {
     }
   }, [metrics.ear, metrics.mar, toast, calibrationData.baselineEar]);
 
-  // Effect to run analysis periodically
   useEffect(() => {
     if (isMonitoring) {
-      analysisInterval.current = setInterval(runDrowsinessAnalysis, 15000); // every 15s
+      analysisInterval.current = setInterval(runDrowsinessAnalysis, 15000);
     } else {
       if (analysisInterval.current) {
         clearInterval(analysisInterval.current);
@@ -143,7 +140,6 @@ export default function Dashboard() {
     };
   }, [isMonitoring, runDrowsinessAnalysis]);
   
-  // Effect to update drowsiness history
   useEffect(() => {
     if (!isMonitoring) return;
 
@@ -159,12 +155,11 @@ export default function Dashboard() {
           const newHistory = [...prevHistory, newPoint];
           return newHistory.length > 60 ? newHistory.slice(1) : newHistory;
       });
-    }, 2000); // Update history every 2 seconds
+    }, 2000);
 
     return () => clearInterval(historyInterval);
   }, [isMonitoring, metrics.drowsinessScore]);
 
-  // Effect for drowsiness alert
   useEffect(() => {
     const now = Date.now();
     if (isMonitoring && aiAnalysis && aiAnalysis.drowsinessLevel !== 'Alert' && (now - lastAlertTime.current > 30000)) { // 30s cooldown
@@ -253,8 +248,9 @@ export default function Dashboard() {
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 flex flex-col gap-6">
             {isClient && <WebcamFeed 
-                            isActive={isMonitoring && !showCalibration} 
+                            isActive={isMonitoring} 
                             isMonitoring={isMonitoring}
+                            isCalibrating={false}
                             onMetricsUpdate={handleMetricsUpdate} 
                         />}
             <DrowsinessAnalysis analysis={aiAnalysis} />

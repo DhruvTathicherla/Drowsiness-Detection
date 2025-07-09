@@ -28,7 +28,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
 
   const handleMetricsUpdate = useCallback((metrics: { ear: number, mar: number }) => {
     if (isCalibrating) {
-        if(metrics.ear > 0 && metrics.mar > 0) { // Only store valid readings
+        if(metrics.ear > 0 && metrics.mar > 0) {
             metricsBuffer.current.push(metrics);
         }
     }
@@ -49,22 +49,21 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
         setProgress((prev) => {
           if (prev >= 100) {
             clearInterval(timer);
-            setIsCalibrating(false); // This will trigger the other useEffect
+            setIsCalibrating(false);
             return 100;
           }
-          return prev + 5; // 5% per 250ms = 5 seconds total
+          return prev + 5;
         });
       }, 250);
     }
     return () => {
-        if (timer) clearInterval(timer);
+      if (timer) clearInterval(timer);
     };
   }, [isCalibrating]);
 
   useEffect(() => {
-    // This effect runs after `isCalibrating` is set to false
     if (!isCalibrating && progress === 100) {
-      if (metricsBuffer.current.length > 10) { // Ensure we have enough samples
+      if (metricsBuffer.current.length > 10) {
           const avgEar = metricsBuffer.current.reduce((sum, m) => sum + m.ear, 0) / metricsBuffer.current.length;
           const avgMar = metricsBuffer.current.reduce((sum, m) => sum + m.mar, 0) / metricsBuffer.current.length;
           
@@ -82,7 +81,6 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
 
   useEffect(() => {
     if (calibrationFailed) {
-      // Schedule the toast to run after the current render cycle is complete.
       setTimeout(() => {
         toast({
           variant: "destructive",
@@ -90,14 +88,13 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
           description: "Could not detect facial features clearly. Please try again in better lighting.",
         });
       }, 0);
-      onOpenChange(false); // Close dialog on failure
+      onOpenChange(false);
     }
   }, [calibrationFailed, onOpenChange, toast]);
   
   useEffect(() => {
-    // Reset component state when dialog is closed or opened
-    if(!open) {
-      setTimeout(() => { // Delay reset to allow closing animation
+    if (!open) {
+      setTimeout(() => {
         setIsCalibrating(false);
         setIsDone(false);
         setProgress(0);
@@ -114,13 +111,13 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
         <DialogHeader>
           <DialogTitle>System Calibration</DialogTitle>
           <DialogDescription>
-            Hold a neutral expression and look at the camera for a few seconds.
+            Hold a neutral expression and look at the camera. Press start when ready.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col items-center justify-center space-y-4 py-4">
             <WebcamFeed 
-                isActive={open} // Webcam is active whenever the dialog is open
+                isActive={open}
                 isMonitoring={false}
                 isCalibrating={isCalibrating}
                 onMetricsUpdate={handleMetricsUpdate}
@@ -139,7 +136,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
                 <div className="w-full space-y-2">
                     <Progress value={progress} />
                     <p className="text-center text-sm font-medium text-muted-foreground">
-                        {isCalibrating ? "Calibrating... Please hold still." : (cameraReady ? "Ready to begin." : "Waiting for camera...")}
+                        {isCalibrating ? "Calibrating... Please hold still." : (cameraReady ? "Ready to begin calibration." : "Waiting for camera...")}
                     </p>
                 </div>
             )}
