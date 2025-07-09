@@ -74,7 +74,7 @@ export default function Dashboard() {
   
   const { toast } = useToast();
   const sessionStartTime = useRef<number | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const analysisInterval = useRef<NodeJS.Timeout | null>(null);
   const lastAlertTime = useRef<number>(0);
   const totalBlinksRef = useRef(0);
@@ -82,6 +82,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     setIsClient(true);
+    // Preload audio
+    if (typeof Audio !== "undefined") {
+      audioRef.current = new Audio("/alert.mp3");
+      audioRef.current.preload = "auto";
+    }
   }, []);
   
   const handleMetricsUpdate = useCallback((newMetricsData: Partial<Metrics>) => {
@@ -94,13 +99,18 @@ export default function Dashboard() {
     if (!sessionStartTime.current) return;
 
     const elapsedSeconds = (Date.now() - sessionStartTime.current) / 1000;
+    if (elapsedSeconds < 5) return; // Don't analyze immediately
+
     const blinkRate = (totalBlinksRef.current / elapsedSeconds) * 60;
     const yawnRate = (totalYawnsRef.current / elapsedSeconds) * 60;
     
+    // Use baseline EAR to normalize the current EAR reading
+    const normalizedEar = calibrationData.baselineEar ? metrics.ear / calibrationData.baselineEar : metrics.ear;
+
     const input: DrowsinessAnalysisInput = {
       blinkRate: isNaN(blinkRate) ? 0 : parseFloat(blinkRate.toFixed(2)),
       yawnRate: isNaN(yawnRate) ? 0 : parseFloat(yawnRate.toFixed(2)),
-      eyeAspectRatio: metrics.ear,
+      eyeAspectRatio: parseFloat(normalizedEar.toFixed(3)), // Send normalized EAR
       mouthAspectRatio: metrics.mar,
       confoundingCircumstances: "None",
     };
@@ -116,13 +126,12 @@ export default function Dashboard() {
         description: 'Could not get drowsiness analysis from the AI model.',
       });
     }
-  }, [metrics.ear, metrics.mar, toast]);
+  }, [metrics.ear, metrics.mar, toast, calibrationData.baselineEar]);
 
   // Effect to run analysis periodically
   useEffect(() => {
     if (isMonitoring) {
-      runDrowsinessAnalysis(); // Run immediately on start
-      analysisInterval.current = setInterval(runDrowsinessAnalysis, 15000); // then every 15s
+      analysisInterval.current = setInterval(runDrowsinessAnalysis, 15000); // every 15s
     } else {
       if (analysisInterval.current) {
         clearInterval(analysisInterval.current);
@@ -138,30 +147,34 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isMonitoring) return;
 
-    setDrowsinessHistory(prevHistory => {
-        const now = new Date();
-        const newPoint: DrowsinessDataPoint = {
-          time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit'}),
-          drowsiness: metrics.drowsinessScore,
-          blinks: totalBlinksRef.current,
-          yawns: totalYawnsRef.current,
-        };
-        const newHistory = [...prevHistory, newPoint];
-        return newHistory.length > 60 ? newHistory.slice(1) : newHistory;
-    });
+    const historyInterval = setInterval(() => {
+      setDrowsinessHistory(prevHistory => {
+          const now = new Date();
+          const newPoint: DrowsinessDataPoint = {
+            time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit'}),
+            drowsiness: metrics.drowsinessScore,
+            blinks: totalBlinksRef.current,
+            yawns: totalYawnsRef.current,
+          };
+          const newHistory = [...prevHistory, newPoint];
+          return newHistory.length > 60 ? newHistory.slice(1) : newHistory;
+      });
+    }, 2000); // Update history every 2 seconds
+
+    return () => clearInterval(historyInterval);
   }, [isMonitoring, metrics.drowsinessScore]);
 
   // Effect for drowsiness alert
   useEffect(() => {
     const now = Date.now();
-    if (isMonitoring && metrics.drowsinessScore > settings.drowsinessThreshold && (now - lastAlertTime.current > 30000)) { // 30s cooldown
+    if (isMonitoring && aiAnalysis && aiAnalysis.drowsinessLevel !== 'Alert' && (now - lastAlertTime.current > 30000)) { // 30s cooldown
       setShowAlert(true);
-      if (settings.audibleAlerts) {
-        audioRef.current?.play().catch(e => console.error("Error playing sound:", e));
+      if (settings.audibleAlerts && audioRef.current) {
+        audioRef.current.play().catch(e => console.error("Error playing sound:", e));
       }
       lastAlertTime.current = now;
     }
-  }, [isMonitoring, metrics.drowsinessScore, settings.drowsinessThreshold, settings.audibleAlerts]);
+  }, [isMonitoring, aiAnalysis, settings.drowsinessThreshold, settings.audibleAlerts]);
 
   const resetState = () => {
     setMetrics({ blinkCount: 0, blinkDuration: 0, yawnCount: 0, yawnDuration: 0, ear: 0, mar: 0, drowsinessScore: 0 });
@@ -177,20 +190,19 @@ export default function Dashboard() {
     const newIsMonitoring = !isMonitoring;
 
     if (newIsMonitoring) {
-      // Logic to start monitoring
       if (!calibrationData.baselineEar) {
         toast({
           variant: "destructive",
           title: "Calibration Required",
-          description: "Please calibrate the system before starting.",
+          description: "Please calibrate the system before starting monitoring.",
         });
-        return; // Prevent starting
+        setShowCalibration(true);
+        return;
       }
-      sessionStartTime.current = Date.now();
       resetState();
+      sessionStartTime.current = Date.now();
       setIsMonitoring(true);
     } else {
-      // Logic to stop monitoring
       if (sessionStartTime.current) {
         const sessionDuration = (Date.now() - sessionStartTime.current) / 1000;
         const avgDrowsiness = drowsinessHistory.reduce((acc, p) => acc + p.drowsiness, 0) / (drowsinessHistory.length || 1);
@@ -209,8 +221,12 @@ export default function Dashboard() {
   };
   
   const handleExport = () => {
+    if (drowsinessHistory.length === 0) {
+        toast({ title: 'No Data to Export', description: 'Start a monitoring session to generate data.' });
+        return;
+    }
     const headers = ["time", "drowsiness_level", "total_blinks", "total_yawns"];
-    const rows = drowsinessHistory.map(h => [h.time, h.drowsiness.toFixed(2), h.blinks, h.yawns].join(','));
+    const rows = drowsinessHistory.map(h => [h.time, h.drowsiness.toFixed(3), h.blinks, h.yawns].join(','));
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -236,7 +252,11 @@ export default function Dashboard() {
       <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 flex flex-col gap-6">
-            {isClient && <WebcamFeed isMonitoring={isMonitoring} isCalibrating={false} onMetricsUpdate={handleMetricsUpdate} />}
+            {isClient && <WebcamFeed 
+                            isActive={isMonitoring && !showCalibration} 
+                            isMonitoring={isMonitoring}
+                            onMetricsUpdate={handleMetricsUpdate} 
+                        />}
             <DrowsinessAnalysis analysis={aiAnalysis} />
           </div>
           <div className="lg:col-span-2 flex flex-col gap-6">
@@ -248,14 +268,14 @@ export default function Dashboard() {
 
       {/* Drowsiness Alert */}
       <AlertDialog open={showAlert} onOpenChange={setShowAlert}>
-        <AlertDialogContent className="data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-destructive flex items-center gap-2 text-2xl">
               <Siren className="w-8 h-8"/>
               Drowsiness Alert!
             </AlertDialogTitle>
             <AlertDialogDescription className="text-lg">
-              High level of drowsiness detected. Please take a break to ensure your safety.
+              {aiAnalysis?.rationale || "High level of drowsiness detected. Please take a break to ensure your safety."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -281,8 +301,6 @@ export default function Dashboard() {
         summaryData={sessionSummaryData}
         onExport={handleExport}
       />
-
-      <audio ref={audioRef} src="/alert.mp3" preload="auto"></audio>
     </div>
   );
 }

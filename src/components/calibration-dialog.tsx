@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
@@ -19,65 +19,73 @@ interface CalibrationDialogProps {
 export default function CalibrationDialog({ open, onOpenChange, setCalibrationData }: CalibrationDialogProps) {
   const [progress, setProgress] = useState(0);
   const [isDone, setIsDone] = useState(false);
-  const [localMetrics, setLocalMetrics] = useState({ ear: 0, mar: 0 });
   const [cameraReady, setCameraReady] = useState(false);
   const [isCalibrating, setIsCalibrating] = useState(false);
   
-  const earValues = useRef<number[]>([]);
-  const marValues = useRef<number[]>([]);
+  const metricsBuffer = useRef<{ ear: number; mar: number }[]>([]);
   const { toast } = useToast();
 
+  const handleMetricsUpdate = useCallback((metrics: { ear: number, mar: number }) => {
+    if (isCalibrating) {
+        if(metrics.ear > 0 && metrics.mar > 0) { // Only store valid readings
+            metricsBuffer.current.push(metrics);
+        }
+    }
+  }, [isCalibrating]);
+  
+  const startCalibration = () => {
+    setProgress(0);
+    setIsDone(false);
+    metricsBuffer.current = [];
+    setIsCalibrating(true);
+  };
+  
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (isCalibrating && cameraReady) {
-      setProgress(0);
-      earValues.current = [];
-      marValues.current = [];
-
+    if (isCalibrating) {
       timer = setInterval(() => {
         setProgress((prev) => {
           if (prev >= 100) {
             clearInterval(timer);
             setIsCalibrating(false);
             
-            if(earValues.current.length > 0) {
-                const avgEar = earValues.current.reduce((a, b) => a + b, 0) / earValues.current.length;
-                // MAR baseline is less critical but good to have
-                const avgMar = marValues.current.length > 0 ? marValues.current.reduce((a, b) => a + b, 0) / marValues.current.length : 0;
+            if (metricsBuffer.current.length > 10) { // Ensure we have enough samples
+                const avgEar = metricsBuffer.current.reduce((sum, m) => sum + m.ear, 0) / metricsBuffer.current.length;
+                const avgMar = metricsBuffer.current.reduce((sum, m) => sum + m.mar, 0) / metricsBuffer.current.length;
+                
                 setCalibrationData({ baselineEar: avgEar, baselineMar: avgMar });
                 setIsDone(true);
-                 toast({
+                toast({
                     title: "Calibration Successful!",
-                    description: `Baseline EAR: ${avgEar.toFixed(2)}`,
+                    description: `Baseline EAR set to ${avgEar.toFixed(2)}`,
                 });
             } else {
                 toast({
                     variant: "destructive",
                     title: "Calibration Failed",
-                    description: "Could not detect facial features. Please try again.",
+                    description: "Could not detect facial features clearly. Please try again in better lighting.",
                 });
-                onOpenChange(false);
+                onOpenChange(false); // Close dialog on failure
             }
             return 100;
           }
-          if (localMetrics.ear > 0) { // Only need EAR for baseline
-            earValues.current.push(localMetrics.ear);
-            marValues.current.push(localMetrics.mar); 
-          }
-          return prev + (100 / 60); // ~3 seconds at 20fps
+          return prev + 5; // 5% per 250ms = 5 seconds total
         });
-      }, 50);
+      }, 250);
     }
     return () => clearInterval(timer);
-  }, [isCalibrating, cameraReady, localMetrics, setCalibrationData, onOpenChange, toast]);
+  }, [isCalibrating, setCalibrationData, onOpenChange, toast]);
   
   useEffect(() => {
-    // Reset component state when dialog is closed
+    // Reset component state when dialog is closed or opened
     if(!open) {
-      setIsCalibrating(false);
-      setIsDone(false);
-      setProgress(0);
-      setCameraReady(false);
+      setTimeout(() => { // Delay reset to allow closing animation
+        setIsCalibrating(false);
+        setIsDone(false);
+        setProgress(0);
+        setCameraReady(false);
+        metricsBuffer.current = [];
+      }, 300);
     }
   }, [open]);
 
@@ -87,20 +95,20 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
         <DialogHeader>
           <DialogTitle>System Calibration</DialogTitle>
           <DialogDescription>
-            Calibrate the system to your unique facial features for improved accuracy.
+            Hold a neutral expression and look at the camera for a few seconds.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col items-center justify-center space-y-4 py-4">
-           {open && (
-              <WebcamFeed 
-                isMonitoring={false} // Main dashboard monitoring is off
-                isCalibrating={true} // Special calibration mode is on
-                onMetricsUpdate={(m) => setLocalMetrics(m as any)}
+            <WebcamFeed 
+                isActive={open} // Webcam is active whenever the dialog is open
+                isMonitoring={false} // Not for blink/yawn counting
+                onMetricsUpdate={handleMetricsUpdate}
                 onCameraReady={setCameraReady}
                 showOverlay={true} 
-              />
-           )}
+                title="Calibration Feed"
+                description="Position your face in the center."
+            />
             
             {isDone ? (
                 <div className="text-center space-y-2">
@@ -111,7 +119,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
                 <div className="w-full space-y-2">
                     <Progress value={progress} />
                     <p className="text-center text-sm font-medium text-muted-foreground">
-                        {isCalibrating ? "Calibrating... Please hold a neutral expression." : (cameraReady ? "Ready to start." : "Initializing camera...")}
+                        {isCalibrating ? "Calibrating... Please hold still." : (cameraReady ? "Ready to begin." : "Waiting for camera...")}
                     </p>
                 </div>
             )}
@@ -120,7 +128,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
             {isDone ? (
                 <Button onClick={() => onOpenChange(false)}>Close</Button>
             ) : (
-                <Button onClick={() => setIsCalibrating(true)} disabled={isCalibrating || !cameraReady}>
+                <Button onClick={startCalibration} disabled={isCalibrating || !cameraReady}>
                     {isCalibrating ? "Calibrating..." : "Start Calibration"}
                 </Button>
             )}
