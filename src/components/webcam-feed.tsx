@@ -39,10 +39,12 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
   const eyeState = useRef({ framesClosed: 0, blinkStartTime: 0 });
   const yawnState = useRef({ framesOpen: 0, yawnStartTime: 0 });
 
+  // Initialize the FaceLandmarker model
   useEffect(() => {
-    setStatus("INITIALIZING_MODEL");
-    setStatusMessage("Loading AI model...");
+    let isCancelled = false;
     const createFaceLandmarker = async () => {
+      setStatus("INITIALIZING_MODEL");
+      setStatusMessage("Loading AI model...");
       try {
         const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
         const landmarker = await FaceLandmarker.createFromOptions(vision, {
@@ -55,37 +57,46 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
           runningMode: "VIDEO",
           numFaces: 1
         });
-        faceLandmarkerRef.current = landmarker;
-        setStatus("IDLE");
-        if (!isCalibrating) setStatusMessage("Ready to start monitoring.");
+        if (!isCancelled) {
+          faceLandmarkerRef.current = landmarker;
+          setStatus("IDLE");
+          setStatusMessage("AI model loaded. Ready.");
+        }
       } catch (error) {
-        console.error("Failed to load FaceLandmarker model:", error);
-        setStatus("ERROR");
-        setStatusMessage("Could not load AI model. Please refresh the page.");
-        toast({
-          variant: "destructive",
-          title: "Model Loading Failed",
-          description: "The AI model for face detection could not be loaded. Please check your network or refresh the page."
-        });
+        if (!isCancelled) {
+          console.error("Failed to load FaceLandmarker model:", error);
+          setStatus("ERROR");
+          setStatusMessage("Could not load AI model. Please refresh the page.");
+          toast({
+            variant: "destructive",
+            title: "Model Loading Failed",
+            description: "The AI model for face detection could not be loaded. Please check your network or refresh the page."
+          });
+        }
       }
     };
     createFaceLandmarker();
-    return () => faceLandmarkerRef.current?.close();
-  }, [isCalibrating, toast]);
+    return () => {
+      isCancelled = true;
+      faceLandmarkerRef.current?.close();
+    };
+  }, [toast]);
   
   const predictLoop = useCallback(() => {
     const video = videoRef.current;
     const faceLandmarker = faceLandmarkerRef.current;
     const canvas = canvasRef.current;
-    const canvasCtx = canvas?.getContext("2d");
+    
+    // Condition to continue the loop
+    const shouldBeRunning = isMonitoring || isCalibrating;
 
-    if (!video || !faceLandmarker || !canvas || !canvasCtx || video.paused || video.ended || video.readyState < 2) {
-      if (isMonitoring || isCalibrating) {
-        animationFrameId.current = requestAnimationFrame(predictLoop);
-      }
+    if (!video || !faceLandmarker || !canvas || video.paused || video.ended || video.readyState < 2 || !shouldBeRunning) {
       return;
     }
     
+    const canvasCtx = canvas.getContext("2d");
+    if (!canvasCtx) return;
+
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -139,16 +150,15 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
       canvasCtx.restore();
     }
     
-    if (isMonitoring || isCalibrating) {
-      animationFrameId.current = requestAnimationFrame(predictLoop);
-    }
+    // Continue the loop
+    animationFrameId.current = requestAnimationFrame(predictLoop);
   }, [onMetricsUpdate, showOverlay, isMonitoring, isCalibrating]);
 
-
+  // Effect to manage camera stream and prediction loop
   useEffect(() => {
     let stream: MediaStream | null = null;
     let isCancelled = false;
-    
+
     const startWebcam = async () => {
         if (!faceLandmarkerRef.current || isCancelled) return;
         
@@ -178,6 +188,7 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
                   setStatus("MONITORING");
                   setStatusMessage("Monitoring active");
                   onCameraReady?.(true);
+                  // Start the prediction loop
                   if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
                   animationFrameId.current = requestAnimationFrame(predictLoop);
                 };
@@ -197,35 +208,39 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
     };
 
     const stopWebcam = () => {
-        if (animationFrameId.current) {
-            cancelAnimationFrame(animationFrameId.current);
-            animationFrameId.current = null;
-        }
-        
-        const video = videoRef.current;
-        if (video && video.srcObject) {
-            (video.srcObject as MediaStream).getTracks().forEach(track => track.stop());
-            video.srcObject = null;
-        }
+      // Stop the prediction loop
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+      }
+      
+      // Stop the camera stream
+      const video = videoRef.current;
+      if (video && video.srcObject) {
+          (video.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+          video.srcObject = null;
+      }
 
-        onCameraReady?.(false);
-        if (status !== 'ERROR' && status !== 'INITIALIZING_MODEL') {
-          setStatus("IDLE");
-          if (!isCalibrating) setStatusMessage("Ready to start monitoring.");
-        }
+      // Reset state if not in an error condition
+      if (status !== 'ERROR' && status !== 'INITIALIZING_MODEL') {
+        setStatus("IDLE");
+        setStatusMessage("Ready.");
+      }
+      onCameraReady?.(false);
     };
     
-    if (isMonitoring || isCalibrating) {
+    const shouldBeRunning = isMonitoring || isCalibrating;
+    if (shouldBeRunning) {
         startWebcam();
-    } else {
-        stopWebcam();
     }
 
+    // Cleanup function to stop webcam when component unmounts or monitoring stops
     return () => {
         isCancelled = true;
         stopWebcam();
     };
-  }, [isMonitoring, isCalibrating, onCameraReady, predictLoop, status, toast]);
+  // This hook should ONLY re-run when isMonitoring or isCalibrating changes.
+  }, [isMonitoring, isCalibrating, predictLoop, onCameraReady, toast]);
 
 
   const showLoader = status === 'INITIALIZING_MODEL' || status === 'INITIALIZING_CAMERA';
@@ -250,7 +265,7 @@ export default function WebcamFeed({ isMonitoring, isCalibrating = false, onMetr
             style={{ transform: 'scaleX(-1)' }}
           />
            <canvas ref={canvasRef} className="w-full h-full rounded-md absolute top-0 left-0" style={{ transform: 'scaleX(-1)' }}/>
-          {(status !== 'MONITORING') && (
+          {(status !== 'MONITORING' || !isMonitoring && !isCalibrating) && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white rounded-lg p-4 text-center z-10">
               {showLoader && <Loader2 className="h-8 w-8 animate-spin mb-2" />}
               <p className="font-medium">{statusMessage}</p>
