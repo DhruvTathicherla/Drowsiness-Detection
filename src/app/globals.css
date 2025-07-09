@@ -3,44 +3,60 @@
 @tailwind utilities;
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 
 @layer base {
   :root {
-    --background: 220 13% 10%;
-    --foreground: 24 95% 75%;
-    --card: 220 13% 12%;
-    --card-foreground: 24 95% 75%;
-    --popover: 220 13% 10%;
-    --popover-foreground: 24 95% 75%;
-    --primary: 24 95% 65%;
-    --primary-foreground: 220 13% 5%;
-    --secondary: 220 13% 18%;
-    --secondary-foreground: 24 95% 75%;
-    --muted: 220 13% 18%;
-    --muted-foreground: 24 50% 60%;
-    --accent: 24 80% 55%;
-    --accent-foreground: 220 13% 5%;
+    --background: 210 40% 98%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 210 40% 98%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 210 40% 98%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 210 80% 44%; /* Navy Blue */
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 182 98% 74%; /* Electric Blue */
+    --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 220 13% 20%;
-    --input: 220 13% 20%;
-    --ring: 24 95% 65%;
-    --chart-1: 0 84.2% 60.2%; /* red */
-    --chart-2: 48 96% 51%; /* yellow */
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
-    --sidebar-background: 220 13% 8%;
-    --sidebar-foreground: 24 95% 80%;
-    --sidebar-primary: 24 95% 65%;
-    --sidebar-primary-foreground: 220 13% 5%;
-    --sidebar-accent: 220 13% 15%;
-    --sidebar-accent-foreground: 24 95% 75%;
-    --sidebar-border: 220 13% 20%;
-    --sidebar-ring: 24 95% 65%;
+    --chart-1: 210 80% 44%;
+    --chart-2: 182 98% 74%;
+    --chart-3: 0 84.2% 60.2%;
+    --chart-4: 48 96% 51%;
+    --chart-5: 27 87% 67%;
+  }
+
+  .dark {
+    --background: 207 19% 9%; /* Darker Navy */
+    --foreground: 210 40% 98%;
+    --card: 208 19% 13%; /* Dark Card */
+    --card-foreground: 210 40% 98%;
+    --popover: 207 19% 9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 182 98% 74%; /* Electric blue as primary in dark mode */
+    --primary-foreground: 207 19% 9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 210 80% 44%; /* Navy as accent */
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 182 98% 74%;
+    --chart-1: 182 98% 74%;
+    --chart-2: 210 80% 44%;
   }
 }
 

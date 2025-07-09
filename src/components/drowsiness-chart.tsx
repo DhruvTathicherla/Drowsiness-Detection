@@ -1,46 +1,48 @@
 "use client";
 
 import * as React from "react";
-import { Line, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import { Line, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import type { DrowsinessDataPoint } from "./dashboard";
 
 const chartConfig = {
   drowsiness: {
-    label: "Drowsiness",
+    label: "Drowsiness Score",
     color: "hsl(var(--chart-1))",
   },
-  blinkYawnRatio: {
-    label: "Blinks / Yawns",
+  blinks: {
+    label: "Total Blinks",
     color: "hsl(var(--chart-2))",
+  },
+  yawns: {
+    label: "Total Yawns",
+    color: "hsl(var(--chart-3))",
   }
 } satisfies ChartConfig;
 
 interface DrowsinessChartProps {
   data: DrowsinessDataPoint[];
+  drowsinessThreshold: number;
 }
 
-export default function DrowsinessChart({ data }: DrowsinessChartProps) {
-  const chartData = React.useMemo(() => data.map(point => ({
-    ...point,
-    blinkYawnRatio: point.yawns > 0 ? parseFloat((point.blinks / point.yawns).toFixed(2)) : 0,
-  })), [data]);
-
+export default function DrowsinessChart({ data, drowsinessThreshold }: DrowsinessChartProps) {
   return (
     <Card className="shadow-lg">
       <CardHeader>
-        <CardTitle className="text-lg">Drowsiness Trend</CardTitle>
-        <CardDescription>Estimated drowsiness level and blink/yawn ratio over time.</CardDescription>
+        <CardTitle className="text-lg">Session Trend</CardTitle>
+        <CardDescription>Live tracking of drowsiness and related metrics over time.</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+        <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
           <LineChart
             accessibilityLayer
-            data={chartData}
+            data={data}
             margin={{
-              left: 12,
-              right: 12,
+              top: 5,
+              right: 10,
+              left: -10,
+              bottom: 0,
             }}
           >
             <CartesianGrid vertical={false} />
@@ -49,6 +51,7 @@ export default function DrowsinessChart({ data }: DrowsinessChartProps) {
               tickLine={false}
               axisLine={false}
               tickMargin={8}
+              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
             />
             <YAxis
               yAxisId="left"
@@ -57,36 +60,59 @@ export default function DrowsinessChart({ data }: DrowsinessChartProps) {
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              stroke="var(--color-drowsiness)"
+              tickCount={6}
+              tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
+              stroke="hsl(var(--chart-1))"
             />
              <YAxis
               yAxisId="right"
-              dataKey="blinkYawnRatio"
               orientation="right"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              stroke="var(--color-blinkYawnRatio)"
+              tickCount={5}
+              stroke="hsl(var(--chart-2))"
             />
-            <Tooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-            <Legend verticalAlign="top" height={36} />
+            <Tooltip
+                cursor={false}
+                content={<ChartTooltipContent indicator="line" />}
+                wrapperStyle={{ outline: 'none', border: 'none' }}
+                contentStyle={{
+                    backgroundColor: 'hsl(var(--background))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: 'var(--radius)',
+                }}
+            />
+            <Legend verticalAlign="top" height={40} />
+            <ReferenceLine y={drowsinessThreshold} yAxisId="left" label={{ value: "Alert Threshold", position: 'insideBottomLeft', fill: 'hsl(var(--destructive))', fontSize: 10 }} stroke="hsl(var(--destructive))" strokeDasharray="3 3" />
             <Line
               yAxisId="left"
               dataKey="drowsiness"
               type="monotone"
               stroke="var(--color-drowsiness)"
-              strokeWidth={2}
+              strokeWidth={3}
               dot={false}
               name="Drowsiness"
             />
             <Line
               yAxisId="right"
-              dataKey="blinkYawnRatio"
-              type="monotone"
-              stroke="var(--color-blinkYawnRatio)"
+              dataKey="blinks"
+              type="step"
+              stroke="var(--color-blinks)"
               strokeWidth={2}
               dot={false}
-              name="Blinks / Yawns"
+              name="Blinks"
+              opacity={0.6}
+            />
+             <Line
+              yAxisId="right"
+              dataKey="yawns"
+              type="step"
+              stroke="var(--color-yawns)"
+              strokeWidth={2}
+              dot={false}
+              name="Yawns"
+              opacity={0.6}
             />
           </LineChart>
         </ChartContainer>
