@@ -68,7 +68,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
       }, 50);
     }
     return () => clearInterval(timer);
-  }, [isCalibrating, cameraReady, localMetrics, setCalibrationData, onOpenChange, toast, setIsCalibrating]);
+  }, [isCalibrating, cameraReady, localMetrics, setCalibrationData, onOpenChange, toast]);
   
   useEffect(() => {
     if(!open) {
@@ -78,7 +78,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
       setProgress(0);
       setCameraReady(false);
     }
-  }, [open, setIsCalibrating]);
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -95,7 +95,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
                {open && (
                   <WebcamFeed 
                     isMonitoring={false}
-                    isCalibrating={isCalibrating || open && !isDone} // Activate webcam when dialog is open and not finished
+                    isCalibrating={isCalibrating || (open && !isDone)} // Activate webcam when dialog is open and not finished
                     onMetricsUpdate={(m) => setLocalMetrics(m as any)}
                     onCameraReady={setCameraReady}
                     showOverlay={true} 
