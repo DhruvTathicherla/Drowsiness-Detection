@@ -155,11 +155,11 @@ export default function Dashboard() {
         const updatedMetrics = { ...prevMetrics };
         
         if (newMetricsData.blinkCount) {
-            updatedMetrics.blinkCount = prevMetrics.blinkCount + newMetricsData.blinkCount;
+            updatedMetrics.blinkCount += newMetricsData.blinkCount;
             blinkHistoryRef.current.push({ time: Date.now() });
         }
         if (newMetricsData.yawnCount) {
-            updatedMetrics.yawnCount = prevMetrics.yawnCount + newMetricsData.yawnCount;
+            updatedMetrics.yawnCount += newMetricsData.yawnCount;
             yawnHistoryRef.current.push({ time: Date.now() });
         }
         if (newMetricsData.ear !== undefined) {
@@ -219,6 +219,7 @@ export default function Dashboard() {
   
   const handleToggleMonitoring = () => {
     const newIsMonitoring = !isMonitoring;
+    setIsMonitoring(newIsMonitoring);
 
     if (newIsMonitoring) {
       if (!calibrationData.baselineEar) {
@@ -228,11 +229,11 @@ export default function Dashboard() {
           description: "Please calibrate the system before starting monitoring.",
         });
         setShowCalibration(true);
+        setIsMonitoring(false); // Revert state if calibration is needed
         return;
       }
       resetState();
       sessionStartTime.current = Date.now();
-      setIsMonitoring(true);
     } else {
       if (sessionStartTime.current) {
         const sessionDuration = (Date.now() - sessionStartTime.current) / 1000;
@@ -247,7 +248,6 @@ export default function Dashboard() {
         setShowSummary(true);
       }
       sessionStartTime.current = null;
-      setIsMonitoring(false);
     }
   };
   
@@ -336,5 +336,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-    
