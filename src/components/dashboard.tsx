@@ -75,7 +75,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const sessionStartTime = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const analysisInterval = useRef<NodeJS.Timeout | null>(null);
+  const analysisTimeout = useRef<NodeJS.Timeout | null>(null);
   const lastAlertTime = useRef<number>(0);
   const totalBlinksRef = useRef(0);
   const totalYawnsRef = useRef(0);
@@ -87,38 +87,26 @@ export default function Dashboard() {
       audioRef.current.preload = "auto";
     }
   }, []);
-  
-  const handleMetricsUpdate = useCallback((newMetricsData: Partial<Metrics>) => {
-    setMetrics(prevMetrics => {
-        const updatedMetrics = { ...prevMetrics, ...newMetricsData };
-        if (newMetricsData.blinkCount) {
-            updatedMetrics.blinkCount = prevMetrics.blinkCount + 1;
-        }
-        if (newMetricsData.yawnCount) {
-            updatedMetrics.yawnCount = prevMetrics.yawnCount + 1;
-        }
-        return updatedMetrics;
-    });
-  }, []);
-  
-  const runDrowsinessAnalysis = useCallback(async () => {
-    if (!sessionStartTime.current) return;
 
+  const runDrowsinessAnalysis = useCallback(async (currentMetrics: Metrics) => {
+    if (!sessionStartTime.current || !isMonitoring) return;
+  
     const elapsedSeconds = (Date.now() - sessionStartTime.current) / 1000;
-    if (elapsedSeconds < 5) return;
-
-    const blinkRate = (metrics.blinkCount / elapsedSeconds) * 60;
-    const yawnRate = (metrics.yawnCount / elapsedSeconds) * 60;
-    
-    const normalizedEar = calibrationData.baselineEar ? metrics.ear / calibrationData.baselineEar : metrics.ear;
-
+    if (elapsedSeconds < 2) return;
+  
+    const blinkRate = (currentMetrics.blinkCount / elapsedSeconds) * 60;
+    const yawnRate = (currentMetrics.yawnCount / elapsedSeconds) * 60;
+  
+    const normalizedEar = calibrationData.baselineEar ? currentMetrics.ear / calibrationData.baselineEar : currentMetrics.ear;
+  
     const input: DrowsinessAnalysisInput = {
       blinkRate: isNaN(blinkRate) ? 0 : parseFloat(blinkRate.toFixed(2)),
       yawnRate: isNaN(yawnRate) ? 0 : parseFloat(yawnRate.toFixed(2)),
       eyeAspectRatio: parseFloat(normalizedEar.toFixed(3)),
-      mouthAspectRatio: metrics.mar,
+      mouthAspectRatio: currentMetrics.mar,
       confoundingCircumstances: "None",
     };
+  
     try {
       const result = await drowsinessAnalysis(input);
       setAiAnalysis(result);
@@ -131,22 +119,33 @@ export default function Dashboard() {
         description: 'Could not get drowsiness analysis from the AI model.',
       });
     }
-  }, [metrics.ear, metrics.mar, metrics.blinkCount, metrics.yawnCount, toast, calibrationData.baselineEar]);
+  }, [isMonitoring, toast, calibrationData.baselineEar]);
 
-  useEffect(() => {
-    if (isMonitoring) {
-      analysisInterval.current = setInterval(runDrowsinessAnalysis, 15000);
-    } else {
-      if (analysisInterval.current) {
-        clearInterval(analysisInterval.current);
-        analysisInterval.current = null;
-      }
-    }
-    return () => {
-      if (analysisInterval.current) clearInterval(analysisInterval.current);
-    };
-  }, [isMonitoring, runDrowsinessAnalysis]);
-  
+  const handleMetricsUpdate = useCallback((newMetricsData: Partial<Metrics>) => {
+    setMetrics(prevMetrics => {
+        const updatedMetrics = { ...prevMetrics };
+        
+        if (newMetricsData.blinkCount) {
+            updatedMetrics.blinkCount = prevMetrics.blinkCount + newMetricsData.blinkCount;
+        }
+        if (newMetricsData.yawnCount) {
+            updatedMetrics.yawnCount = prevMetrics.yawnCount + newMetricsData.yawnCount;
+        }
+        if (newMetricsData.ear !== undefined) {
+          updatedMetrics.ear = newMetricsData.ear;
+        }
+        if (newMetricsData.mar !== undefined) {
+          updatedMetrics.mar = newMetricsData.mar;
+        }
+
+        // Debounce the analysis call
+        if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
+        analysisTimeout.current = setTimeout(() => runDrowsinessAnalysis(updatedMetrics), 1500);
+
+        return updatedMetrics;
+    });
+  }, [runDrowsinessAnalysis]);
+
   useEffect(() => {
     if (!isMonitoring) return;
 
