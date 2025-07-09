@@ -81,13 +81,15 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
   }, [isCalibrating, progress, setCalibrationData, toast]);
 
   useEffect(() => {
-    // This effect handles the failure toast separately to avoid render loops
     if (calibrationFailed) {
-      toast({
-        variant: "destructive",
-        title: "Calibration Failed",
-        description: "Could not detect facial features clearly. Please try again in better lighting.",
-      });
+      // Schedule the toast to run after the current render cycle is complete.
+      setTimeout(() => {
+        toast({
+          variant: "destructive",
+          title: "Calibration Failed",
+          description: "Could not detect facial features clearly. Please try again in better lighting.",
+        });
+      }, 0);
       onOpenChange(false); // Close dialog on failure
     }
   }, [calibrationFailed, onOpenChange, toast]);
