@@ -79,12 +79,16 @@ export default function Dashboard() {
   const { toast } = useToast();
   const sessionStartTime = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const analysisTimeout = useRef<NodeJS.Timeout | null>(null);
   const lastAlertTime = useRef<number>(0);
   
+  const metricsRef = useRef(metrics);
   const blinkHistoryRef = useRef<EventTimestamp[]>([]);
   const yawnHistoryRef = useRef<EventTimestamp[]>([]);
   const ROLLING_WINDOW_SECONDS = 60;
+
+  useEffect(() => {
+    metricsRef.current = metrics;
+  }, [metrics]);
 
   useEffect(() => {
     setIsClient(true);
@@ -97,7 +101,7 @@ export default function Dashboard() {
   const getDrowsinessScoreFromLevel = (level: string): number => {
     switch (level) {
       case 'Alert':
-        return 0;
+        return 0.1; // Return a small non-zero value to show on gauge
       case 'Slightly Drowsy':
         return 0.33;
       case 'Moderately Drowsy':
@@ -109,9 +113,10 @@ export default function Dashboard() {
     }
   };
 
-  const runDrowsinessAnalysis = useCallback(async (currentMetrics: Metrics) => {
+  const runDrowsinessAnalysis = useCallback(async () => {
     if (!sessionStartTime.current || !isMonitoring) return;
   
+    const currentMetrics = metricsRef.current;
     const now = Date.now();
     const windowStartTime = now - ROLLING_WINDOW_SECONDS * 1000;
     
@@ -121,17 +126,19 @@ export default function Dashboard() {
     const blinksInWindow = blinkHistoryRef.current.length;
     const yawnsInWindow = yawnHistoryRef.current.length;
 
-    const elapsedSeconds = (now - windowStartTime) / 1000;
-    const blinkRate = (blinksInWindow / elapsedSeconds) * 60;
-    const yawnRate = (yawnsInWindow / elapsedSeconds) * 60;
+    // Use session duration if less than rolling window
+    const elapsedSeconds = (now - (sessionStartTime.current > windowStartTime ? sessionStartTime.current : windowStartTime)) / 1000;
+    
+    const blinkRate = elapsedSeconds > 0 ? (blinksInWindow / elapsedSeconds) * 60 : 0;
+    const yawnRate = elapsedSeconds > 0 ? (yawnsInWindow / elapsedSeconds) * 60 : 0;
 
     const normalizedEar = calibrationData.baselineEar ? currentMetrics.ear / calibrationData.baselineEar : currentMetrics.ear;
   
     const input: DrowsinessAnalysisInput = {
       blinkRate: isNaN(blinkRate) ? 0 : parseFloat(blinkRate.toFixed(2)),
       yawnRate: isNaN(yawnRate) ? 0 : parseFloat(yawnRate.toFixed(2)),
-      eyeAspectRatio: parseFloat(normalizedEar.toFixed(3)),
-      mouthAspectRatio: currentMetrics.mar,
+      eyeAspectRatio: isNaN(normalizedEar) ? 0 : parseFloat(normalizedEar.toFixed(3)),
+      mouthAspectRatio: isNaN(currentMetrics.mar) ? 0 : currentMetrics.mar,
       confoundingCircumstances: "None",
     };
   
@@ -168,33 +175,38 @@ export default function Dashboard() {
         if (newMetricsData.mar !== undefined) {
           updatedMetrics.mar = newMetricsData.mar;
         }
-
-        if (analysisTimeout.current) clearTimeout(analysisTimeout.current);
-        analysisTimeout.current = setTimeout(() => runDrowsinessAnalysis(updatedMetrics), 1500);
-
+        
         return updatedMetrics;
     });
-  }, [runDrowsinessAnalysis]);
+  }, []);
 
   useEffect(() => {
     if (!isMonitoring) return;
+
+    // Run analysis on a consistent interval for reliability
+    const analysisInterval = setInterval(() => {
+      runDrowsinessAnalysis();
+    }, 2000); // Analyze every 2 seconds
 
     const historyInterval = setInterval(() => {
       setDrowsinessHistory(prevHistory => {
           const now = new Date();
           const newPoint: DrowsinessDataPoint = {
             time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit'}),
-            drowsiness: metrics.drowsinessScore,
-            blinks: metrics.blinkCount,
-            yawns: metrics.yawnCount,
+            drowsiness: metricsRef.current.drowsinessScore,
+            blinks: metricsRef.current.blinkCount,
+            yawns: metricsRef.current.yawnCount,
           };
           const newHistory = [...prevHistory, newPoint];
           return newHistory.length > 60 ? newHistory.slice(1) : newHistory;
       });
     }, 2000);
 
-    return () => clearInterval(historyInterval);
-  }, [isMonitoring, metrics.drowsinessScore, metrics.blinkCount, metrics.yawnCount]);
+    return () => {
+        clearInterval(analysisInterval);
+        clearInterval(historyInterval);
+    }
+  }, [isMonitoring, runDrowsinessAnalysis]);
 
   useEffect(() => {
     const now = Date.now();
@@ -219,7 +231,6 @@ export default function Dashboard() {
   
   const handleToggleMonitoring = () => {
     const newIsMonitoring = !isMonitoring;
-    setIsMonitoring(newIsMonitoring);
 
     if (newIsMonitoring) {
       if (!calibrationData.baselineEar) {
@@ -229,25 +240,29 @@ export default function Dashboard() {
           description: "Please calibrate the system before starting monitoring.",
         });
         setShowCalibration(true);
-        setIsMonitoring(false); // Revert state if calibration is needed
         return;
       }
       resetState();
       sessionStartTime.current = Date.now();
+      setIsMonitoring(true);
     } else {
       if (sessionStartTime.current) {
         const sessionDuration = (Date.now() - sessionStartTime.current) / 1000;
-        const avgDrowsiness = drowsinessHistory.reduce((acc, p) => acc + p.drowsiness, 0) / (drowsinessHistory.length || 1);
+        const avgDrowsiness = drowsinessHistory.length > 0
+          ? drowsinessHistory.reduce((acc, p) => acc + p.drowsiness, 0) / drowsinessHistory.length
+          : 0;
+        
         setSessionSummaryData({
           duration: sessionDuration,
           totalBlinks: metrics.blinkCount,
           totalYawns: metrics.yawnCount,
           avgDrowsiness: avgDrowsiness,
-          alerts: drowsinessHistory.filter(p => p.drowsiness > settings.drowsinessThreshold).length,
+          alerts: drowsinessHistory.filter(p => p.drowsiness >= settings.drowsinessThreshold).length,
         });
         setShowSummary(true);
       }
       sessionStartTime.current = null;
+      setIsMonitoring(false);
     }
   };
   
@@ -336,3 +351,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
