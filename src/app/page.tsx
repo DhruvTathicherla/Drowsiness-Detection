@@ -1,9 +1,7 @@
-import DrowsinessDetector from '@/components/drowsiness-detector';
+import Dashboard from "@/components/dashboard";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 sm:p-6 lg:p-8">
-      <DrowsinessDetector />
-    </div>
+    <Dashboard />
   );
 }

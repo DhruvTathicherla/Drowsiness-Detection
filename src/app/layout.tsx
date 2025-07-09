@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
   title: 'Vigilance AI',
-  description: 'AI-powered drowsiness detection assistant',
+  description: 'Drowsiness and vital sign detection system',
 };
 
 export default function RootLayout({
@@ -20,7 +20,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased">
+      <body className={cn('font-sans antialiased')}>
         {children}
         <Toaster />
       </body>

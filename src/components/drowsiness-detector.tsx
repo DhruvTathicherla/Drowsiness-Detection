@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, type ReactElement } from 'react';
-import { drowsinessAnalysis, type DrowsinessAnalysisOutput } from '@/ai/flows/drowsiness-analysis';
+import { drowsinessAnalysis, type DrowsinessAnalysisOutput } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
