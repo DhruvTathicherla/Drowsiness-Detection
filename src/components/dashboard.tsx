@@ -180,7 +180,11 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (!isMonitoring) return;
+    if (!isMonitoring) {
+        setShowFlashingAlert(false);
+        setAiAnalysis(null);
+        return;
+    };
 
     const analysisInterval = setInterval(() => {
       runDrowsinessAnalysis();
