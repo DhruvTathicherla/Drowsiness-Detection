@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -14,11 +15,16 @@ interface HeaderProps {
 }
 
 const Logo = () => (
-    <svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="text-primary">
-      <path d="M50 10 C 20 10, 10 40, 10 50 C 10 60, 20 90, 50 90 C 80 90, 90 60, 90 50 C 90 40, 80 10, 50 10 z M 50 30 A 20 20 0 1 1 50 70 A 20 20 0 1 1 50 30 z" fill="currentColor"/>
-      <circle cx="50" cy="50" r="10" className="text-accent dark:text-background" fill="currentColor" />
-    </svg>
-  );
+    <div className="logo-bounce w-8 h-8 relative">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="text-primary w-full h-full">
+            <path d="M50 10 C 20 10, 10 40, 10 50 C 10 60, 20 90, 50 90 C 80 90, 90 60, 90 50 C 90 40, 80 10, 50 10 z" fill="currentColor"/>
+            <g className="logo-blink">
+                <circle cx="50" cy="50" r="12" className="text-accent dark:text-background" fill="currentColor" />
+                <circle cx="50" cy="50" r="5" className="text-foreground/70" fill="currentColor" />
+            </g>
+        </svg>
+    </div>
+);
   
 export default function Header({ isMonitoring, onToggleMonitoring, onCalibrate, onOpenSettings, onExport, isExportDisabled }: HeaderProps) {
   const { setTheme, theme } = useTheme();

@@ -331,9 +331,9 @@ export default function Dashboard() {
           <div className="lg:col-span-3 flex flex-col gap-6">
             {isClient && <WebcamFeed 
                             isActive={isMonitoring || showCalibration} 
+                            onMetricsUpdate={handleMetricsUpdate}
                             isMonitoring={isMonitoring}
                             isCalibrating={showCalibration}
-                            onMetricsUpdate={handleMetricsUpdate} 
                         />}
             <DrowsinessAnalysis analysis={aiAnalysis} />
           </div>

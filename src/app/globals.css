@@ -68,3 +68,49 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes logo-bounce {
+  0%, 100% {
+    transform: translateY(-2%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+@keyframes logo-blink {
+  0%, 40%, 100% {
+    transform: scaleY(1);
+  }
+  45% {
+    transform: scaleY(0.1);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.logo-bounce {
+  animation: logo-bounce 3s infinite;
+}
+
+.logo-blink {
+  animation: logo-blink 5s infinite;
+  transform-origin: center;
+}
+
+@keyframes gradient-animation {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+@keyframes pulse-moderate {
+    0%, 100% { box-shadow: 0 0 10px 5px rgba(255, 140, 66, 0.7); }
+    50% { box-shadow: 0 0 25px 15px rgba(255, 221, 75, 0.7); }
+}
+@keyframes pulse-severe {
+    0%, 100% { box-shadow: 0 0 15px 7px rgba(255, 65, 77, 0.8); }
+    50% { box-shadow: 0 0 35px 20px rgba(255, 140, 66, 0.8); }
+}

@@ -19,7 +19,6 @@ type WebcamStatus = "IDLE" | "INITIALIZING" | "RUNNING" | "ERROR";
 interface WebcamFeedProps {
   isActive: boolean;
   onMetricsUpdate: (metrics: Partial<Metrics>) => void;
-  onCameraReady?: (ready: boolean) => void;
   showOverlay?: boolean;
   isMonitoring: boolean;
   isCalibrating: boolean;
@@ -30,7 +29,6 @@ interface WebcamFeedProps {
 export default function WebcamFeed({ 
   isActive, 
   onMetricsUpdate, 
-  onCameraReady, 
   showOverlay = true,
   isMonitoring,
   isCalibrating,
@@ -122,7 +120,6 @@ export default function WebcamFeed({
       }
 
       setStatus('INITIALIZING');
-      onCameraReady?.(false);
       
       try {
         if (!faceLandmarkerRef.current) {
@@ -145,7 +142,6 @@ export default function WebcamFeed({
             videoRef.current.onloadedmetadata = () => {
               videoRef.current?.play();
               setStatus("RUNNING");
-              onCameraReady?.(true);
               animationFrameId.current = requestAnimationFrame(predictLoop);
             };
         }
@@ -157,7 +153,6 @@ export default function WebcamFeed({
           title: "Camera Access Denied",
           description: "Please enable camera permissions in your browser settings."
         });
-        onCameraReady?.(false);
       }
     }
 
@@ -174,7 +169,6 @@ export default function WebcamFeed({
             videoRef.current.srcObject = null;
         }
         setStatus("IDLE");
-        onCameraReady?.(false);
     }
 
     if(isActive) {
@@ -186,7 +180,7 @@ export default function WebcamFeed({
     return () => {
         stopWebcam();
     };
-  }, [isActive, onCameraReady, predictLoop, toast]);
+  }, [isActive, predictLoop, toast]);
 
 
   const renderOverlay = () => {

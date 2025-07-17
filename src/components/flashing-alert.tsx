@@ -51,27 +51,9 @@ export default function FlashingAlert({ isAlerting, level }: FlashingAlertProps)
         'fixed top-0 w-4 h-full shadow-2xl shadow-destructive/50 transition-opacity duration-500 ease-in-out flex items-center justify-center',
         isAlerting ? 'opacity-100' : 'opacity-0 pointer-events-none'
     );
-    
-    // Define keyframes in a style tag to be injected in the head
-    const keyframes = `
-        @keyframes gradient-animation {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        @keyframes pulse-moderate {
-            0%, 100% { box-shadow: 0 0 10px 5px rgba(255, 140, 66, 0.7); }
-            50% { box-shadow: 0 0 25px 15px rgba(255, 221, 75, 0.7); }
-        }
-        @keyframes pulse-severe {
-            0%, 100% { box-shadow: 0 0 15px 7px rgba(255, 65, 77, 0.8); }
-            50% { box-shadow: 0 0 35px 20px rgba(255, 140, 66, 0.8); }
-        }
-    `;
 
     return (
         <>
-            <style>{keyframes}</style>
             {/* Left Alert Bar */}
             <div className={cn(alertBarClasses, 'left-0')} style={isAlerting ? gradientStyle : {}}>
                 <div className="transform -rotate-90 whitespace-nowrap flex items-center gap-4 text-white font-bold text-xl tracking-wider">
