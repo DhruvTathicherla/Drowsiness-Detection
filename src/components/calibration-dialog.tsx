@@ -101,7 +101,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
           <DialogTitle>System Calibration</DialogTitle>
           <DialogDescription>
             Hold a neutral expression and look at the camera. Press start when ready.
-          </Description>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col items-center justify-center space-y-4 py-4">
