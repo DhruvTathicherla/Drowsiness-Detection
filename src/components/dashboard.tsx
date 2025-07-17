@@ -14,7 +14,7 @@ import { drowsinessAnalysis, summarizeSession } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import FlashingAlert from "./flashing-alert";
 import ConfoundingFactors from "./confounding-factors";
-import type { DrowsinessAnalysisInput, DrowsinessAnalysisOutput, SummarizeSessionInput, SummarizeSessionOutput } from "@/ai/schemas";
+import type { DrowsinessAnalysisOutput, SummarizeSessionOutput } from "@/ai/schemas";
 
 export interface Metrics {
   blinkCount: number;
@@ -66,7 +66,7 @@ export default function Dashboard() {
   const [confoundingFactors, setConfoundingFactors] = useState<string[]>([]);
   const [showFlashingAlert, setShowFlashingAlert] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showCalibration, setShowCalibration] = useState(false);
+  const [showCalibration, setShowCalibration] = useState(true);
   const [showSummary, setShowSummary] = useState(false);
   const [sessionSummaryData, setSessionSummaryData] = useState<any>(null);
   const [settings, setSettings] = useState<Settings>({
@@ -129,7 +129,7 @@ export default function Dashboard() {
     const blinksInWindow = blinkHistoryRef.current.length;
     const yawnsInWindow = yawnHistoryRef.current.length;
   
-    const input: DrowsinessAnalysisInput = {
+    const input = {
       blinkRate: blinksInWindow,
       yawnRate: yawnsInWindow,
       eyeAspectRatio: isNaN(currentMetrics.ear) ? 0 : parseFloat(currentMetrics.ear.toFixed(3)),
@@ -256,7 +256,7 @@ export default function Dashboard() {
         const sessionDuration = (Date.now() - sessionStartTime.current) / 1000;
         const historyForSummary = drowsinessHistory.map(p => ({ time: p.time, drowsiness: p.drowsiness }));
 
-        const summaryInput: SummarizeSessionInput = {
+        const summaryInput = {
           duration: sessionDuration,
           totalBlinks: metrics.blinkCount,
           totalYawns: metrics.yawnCount,
@@ -332,7 +332,7 @@ export default function Dashboard() {
             {isClient && <WebcamFeed 
                             isActive={isMonitoring || showCalibration} 
                             isMonitoring={isMonitoring}
-                            isCalibrating={false}
+                            isCalibrating={showCalibration}
                             onMetricsUpdate={handleMetricsUpdate} 
                         />}
             <DrowsinessAnalysis analysis={aiAnalysis} />

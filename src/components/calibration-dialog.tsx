@@ -5,8 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle } from "lucide-react";
-import WebcamFeed from "./webcam-feed";
+import { CheckCircle, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { CalibrationData, Metrics } from "./dashboard";
 
@@ -102,19 +101,15 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
           <DialogTitle>System Calibration</DialogTitle>
           <DialogDescription>
             Hold a neutral expression and look at the camera. Press start when ready.
-          </DialogDescription>
+          </Description>
         </DialogHeader>
 
         <div className="flex flex-col items-center justify-center space-y-4 py-4">
-            <WebcamFeed 
-                isActive={open}
-                isMonitoring={false}
-                isCalibrating={isCalibrating}
-                onMetricsUpdate={() => {}} // This is handled by liveMetrics prop now
-                showOverlay={true} 
-                title="Calibration Feed"
-                description="Position your face in the center."
-            />
+            <div className="w-full aspect-video bg-secondary rounded-lg flex flex-col items-center justify-center text-muted-foreground">
+                <Camera className="w-16 h-16 mb-2"/>
+                <p className="font-semibold">Using Main Camera Feed</p>
+                <p className="text-sm">Your face will be analyzed for calibration.</p>
+            </div>
             
             {isDone ? (
                 <div className="text-center space-y-2">
