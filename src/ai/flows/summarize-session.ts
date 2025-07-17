@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Generates a natural language summary of a drowsiness monitoring session.
@@ -26,7 +27,7 @@ const prompt = ai.definePrompt({
   - Total Blinks: {{totalBlinks}}
   - Total Yawns: {{totalYawns}}
   - Confounding Factors Reported: {{#if confoundingFactors}}{{confoundingFactors}}{{else}}None{{/if}}
-  - Drowsiness History (a series of scores from 0.0 to 1.0 over time): {{#each drowsinessHistory}}{{this.drowsiness.toFixed 2}} {{/each}}
+  - Drowsiness History (a series of scores from 0.0 to 1.0 over time): {{#each drowsinessHistory}}{{this.drowsiness}} {{/each}}
 
   Based on this data, generate a summary. The summary should be broken down into:
   1.  **headline**: A one-sentence, overall assessment of the session (e.g., "You remained mostly alert during this session.", "You showed several signs of moderate drowsiness.").
@@ -51,8 +52,17 @@ const summarizeSessionFlow = ai.defineFlow(
         insights: "For a full report, try running a monitoring session for at least a few minutes."
       }
     }
+    
+    // Format drowsiness history for the prompt
+    const processedInput = {
+        ...input,
+        drowsinessHistory: input.drowsinessHistory.map(h => ({
+            ...h,
+            drowsiness: parseFloat(h.drowsiness.toFixed(2))
+        }))
+    };
 
-    const { output } = await prompt(input);
+    const { output } = await prompt(processedInput);
     return output!;
   }
 );

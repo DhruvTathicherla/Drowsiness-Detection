@@ -40,7 +40,7 @@ export default function FlashingAlert({ isAlerting, level }: FlashingAlertProps)
     useEffect(() => {
         if (isAlerting) {
             setGradientStyle({
-                background: alertConfig.gradient,
+                backgroundImage: alertConfig.gradient,
                 backgroundSize: '400% 400%',
                 animation: `${alertConfig.animation}, gradient-animation 10s ease infinite`
             });

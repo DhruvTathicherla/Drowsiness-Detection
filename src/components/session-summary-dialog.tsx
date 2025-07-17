@@ -1,3 +1,4 @@
+
 "use client"
 
 import { Button } from "@/components/ui/button"
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Separator } from "./ui/separator";
-import { BarChart, Clock, Download, AlertTriangle, Activity, BrainCircuit, Sparkles, Loader2 } from "lucide-react"
+import { BarChart, Clock, Download, AlertTriangle, Activity, BrainCircuit, Sparkles, Loader2, Eye, Smile } from "lucide-react"
 import type { SummarizeSessionOutput } from "@/ai/schemas";
 import { cn } from "@/lib/utils";
 
