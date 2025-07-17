@@ -15,14 +15,14 @@ const getAlertConfig = (level?: string) => {
         case 'Moderately Drowsy':
             return {
                 text: 'MODERATE DROWSINESS',
-                gradient: `linear-gradient(45deg, #ff8c42, #ffdd4b, #ff8c42)`,
+                gradient: `linear-gradient(45deg, hsl(var(--accent)), hsl(48, 96%, 51%), hsl(var(--accent)))`,
                 animation: 'pulse-moderate 2s infinite'
             };
         case 'Severely Drowsy':
             return {
                 text: 'SEVERE DROWSINESS',
-                gradient: `linear-gradient(45deg, #ff414d, #ff8c42, #ff414d)`,
-                animation: 'pulse-severe 1s infinite'
+                gradient: `linear-gradient(45deg, hsl(var(--destructive)), hsl(var(--accent)), hsl(var(--destructive)))`,
+                animation: 'pulse-severe 1.5s infinite'
             };
         default:
             return {
@@ -48,7 +48,8 @@ export default function FlashingAlert({ isAlerting, level }: FlashingAlertProps)
     }, [isAlerting, alertConfig.gradient, alertConfig.animation]);
 
     const alertBarClasses = cn(
-        'fixed top-0 w-4 h-full shadow-2xl shadow-destructive/50 transition-opacity duration-500 ease-in-out flex items-center justify-center',
+        'fixed top-0 w-4 h-full shadow-2xl transition-opacity duration-500 ease-in-out flex items-center justify-center z-50',
+        'shadow-black/50',
         isAlerting ? 'opacity-100' : 'opacity-0 pointer-events-none'
     );
 
@@ -56,18 +57,18 @@ export default function FlashingAlert({ isAlerting, level }: FlashingAlertProps)
         <>
             {/* Left Alert Bar */}
             <div className={cn(alertBarClasses, 'left-0')} style={isAlerting ? gradientStyle : {}}>
-                <div className="transform -rotate-90 whitespace-nowrap flex items-center gap-4 text-white font-bold text-xl tracking-wider">
-                    <Siren className="w-6 h-6" />
+                <div className="transform -rotate-90 whitespace-nowrap flex items-center gap-4 text-white font-bold text-xl tracking-wider text-shadow-lg">
+                    <Siren className="w-6 h-6 animate-pulse" />
                     <span>{alertConfig.text.toUpperCase()}</span>
-                    <Siren className="w-6 h-6" />
+                    <Siren className="w-6 h-6 animate-pulse" />
                 </div>
             </div>
             {/* Right Alert Bar */}
             <div className={cn(alertBarClasses, 'right-0')} style={isAlerting ? gradientStyle : {}}>
                 <div className="transform -rotate-90 whitespace-nowrap flex items-center gap-4 text-white font-bold text-xl tracking-wider">
-                    <Siren className="w-6 h-6" />
+                    <Siren className="w-6 h-6 animate-pulse" />
                     <span>{alertConfig.text.toUpperCase()}</span>
-                    <Siren className="w-6 h-6" />
+                    <Siren className="w-6 h-6 animate-pulse" />
                 </div>
             </div>
         </>

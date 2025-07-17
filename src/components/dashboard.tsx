@@ -96,8 +96,9 @@ export default function Dashboard() {
     setIsClient(true);
     // Ensure Audio is only accessed on the client
     if (typeof Audio !== "undefined") {
-      audioRef.current = new Audio("/alert.mp3");
-      audioRef.current.preload = "auto";
+      const audio = new Audio("/alert.mp3");
+      audio.preload = "auto";
+      audioRef.current = audio;
     }
   }, []);
 
