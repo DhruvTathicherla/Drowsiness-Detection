@@ -10,10 +10,11 @@ import DrowsinessChart from "@/components/drowsiness-chart";
 import SettingsDialog from "@/components/settings-dialog";
 import CalibrationDialog from "./calibration-dialog";
 import SessionSummaryDialog from "./session-summary-dialog";
-import { drowsinessAnalysis } from "@/app/actions";
-import type { DrowsinessAnalysisInput, type DrowsinessAnalysisOutput } from "@/ai/flows/drowsiness-analysis";
+import { drowsinessAnalysis, summarizeSession } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import FlashingAlert from "./flashing-alert";
+import ConfoundingFactors from "./confounding-factors";
+import type { DrowsinessAnalysisInput, DrowsinessAnalysisOutput, SummarizeSessionInput, SummarizeSessionOutput } from "@/ai/schemas";
 
 export interface Metrics {
   blinkCount: number;
@@ -60,7 +61,9 @@ export default function Dashboard() {
     drowsinessScore: 0,
   });
   const [aiAnalysis, setAiAnalysis] = useState<DrowsinessAnalysisOutput | null>(null);
+  const [sessionSummary, setSessionSummary] = useState<SummarizeSessionOutput | null>(null);
   const [drowsinessHistory, setDrowsinessHistory] = useState<DrowsinessDataPoint[]>([]);
+  const [confoundingFactors, setConfoundingFactors] = useState<string[]>([]);
   const [showFlashingAlert, setShowFlashingAlert] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCalibration, setShowCalibration] = useState(false);
@@ -131,7 +134,7 @@ export default function Dashboard() {
       yawnRate: yawnsInWindow,
       eyeAspectRatio: isNaN(currentMetrics.ear) ? 0 : parseFloat(currentMetrics.ear.toFixed(3)),
       mouthAspectRatio: isNaN(currentMetrics.mar) ? 0 : currentMetrics.mar,
-      confoundingCircumstances: "None",
+      confoundingFactors: confoundingFactors.join(', ') || undefined,
     };
   
     try {
@@ -147,7 +150,7 @@ export default function Dashboard() {
         description: 'Could not get drowsiness analysis from the AI model.',
       });
     }
-  }, [isMonitoring, toast]);
+  }, [isMonitoring, toast, confoundingFactors]);
 
   const handleMetricsUpdate = useCallback((newMetricsData: Partial<Metrics>) => {
     setMetrics(prevMetrics => {
@@ -224,13 +227,14 @@ export default function Dashboard() {
     setMetrics({ blinkCount: 0, blinkDuration: 0, yawnCount: 0, yawnDuration: 0, ear: 0, mar: 0, drowsinessScore: 0 });
     setDrowsinessHistory([]);
     setAiAnalysis(null);
+    setSessionSummary(null);
     setShowFlashingAlert(false);
     blinkHistoryRef.current = [];
     yawnHistoryRef.current = [];
     lastAlertTime.current = 0;
   };
   
-  const handleToggleMonitoring = () => {
+  const handleToggleMonitoring = async () => {
     const newIsMonitoring = !isMonitoring;
 
     if (newIsMonitoring) {
@@ -247,24 +251,46 @@ export default function Dashboard() {
       sessionStartTime.current = Date.now();
       setIsMonitoring(true);
     } else {
+      setIsMonitoring(false);
       if (sessionStartTime.current) {
         const sessionDuration = (Date.now() - sessionStartTime.current) / 1000;
-        const avgDrowsiness = drowsinessHistory.length > 0
-          ? drowsinessHistory.reduce((acc, p) => acc + p.drowsiness, 0) / drowsinessHistory.length
-          : 0;
-        
+        const historyForSummary = drowsinessHistory.map(p => ({ time: p.time, drowsiness: p.drowsiness }));
+
+        const summaryInput: SummarizeSessionInput = {
+          duration: sessionDuration,
+          totalBlinks: metrics.blinkCount,
+          totalYawns: metrics.yawnCount,
+          confoundingFactors: confoundingFactors.join(', ') || undefined,
+          drowsinessHistory: historyForSummary,
+        };
+
+        // For the raw data display in the dialog
         setSessionSummaryData({
           duration: sessionDuration,
           totalBlinks: metrics.blinkCount,
           totalYawns: metrics.yawnCount,
-          avgDrowsiness: avgDrowsiness,
+          avgDrowsiness: historyForSummary.length > 0
+            ? historyForSummary.reduce((acc, p) => acc + p.drowsiness, 0) / historyForSummary.length
+            : 0,
           alerts: drowsinessHistory.filter(p => p.drowsiness >= settings.drowsinessThreshold).length,
         });
+        
         setShowSummary(true);
+
+        try {
+          const aiSummary = await summarizeSession(summaryInput);
+          setSessionSummary(aiSummary);
+        } catch(e) {
+            console.error("AI Summary failed", e);
+            toast({ variant: 'destructive', title: 'AI Summary Failed' });
+            setSessionSummary({
+                headline: "Could not generate AI summary.",
+                trends: "An error occurred while analyzing the session.",
+                insights: "Please check your connection and try again."
+            })
+        }
       }
       sessionStartTime.current = null;
-      setIsMonitoring(false);
-      resetState(); // Reset state after stopping
     }
   };
   
@@ -313,6 +339,7 @@ export default function Dashboard() {
           </div>
           <div className="lg:col-span-2 flex flex-col gap-6">
             <MetricsGrid metrics={metrics} />
+            <ConfoundingFactors selectedFactors={confoundingFactors} onFactorsChange={setConfoundingFactors} disabled={isMonitoring} />
             <DrowsinessChart data={drowsinessHistory} drowsinessThreshold={settings.drowsinessThreshold} />
           </div>
         </div>
@@ -328,11 +355,16 @@ export default function Dashboard() {
         open={showCalibration}
         onOpenChange={setShowCalibration}
         setCalibrationData={setCalibrationData}
+        liveMetrics={metrics}
       />
       <SessionSummaryDialog
         open={showSummary}
-        onOpenChange={setShowSummary}
+        onOpenChange={(isOpen) => {
+            setShowSummary(isOpen);
+            if (!isOpen) resetState(); // Reset state when closing the dialog
+        }}
         summaryData={sessionSummaryData}
+        aiSummary={sessionSummary}
         onExport={handleExport}
       />
     </div>

@@ -1,10 +1,16 @@
 'use server';
 
-import { drowsinessAnalysis as drowsinessAnalysisFlow, type DrowsinessAnalysisInput, type DrowsinessAnalysisOutput } from '@/ai/flows/drowsiness-analysis';
+import { drowsinessAnalysis as drowsinessAnalysisFlow } from '@/ai/flows/drowsiness-analysis';
+import { summarizeSession as summarizeSessionFlow } from '@/ai/flows/summarize-session';
+
+import type { DrowsinessAnalysisInput, DrowsinessAnalysisOutput, SummarizeSessionInput, SummarizeSessionOutput } from '@/ai/schemas';
 
 export async function drowsinessAnalysis(input: DrowsinessAnalysisInput): Promise<DrowsinessAnalysisOutput> {
-  // In a real application, you might add logic here to log the analysis request
-  // or save the results to a database like Firebase Firestore.
   const result = await drowsinessAnalysisFlow(input);
+  return result;
+}
+
+export async function summarizeSession(input: SummarizeSessionInput): Promise<SummarizeSessionOutput> {
+  const result = await summarizeSessionFlow(input);
   return result;
 }

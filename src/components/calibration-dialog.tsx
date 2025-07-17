@@ -8,36 +8,26 @@ import { Progress } from "@/components/ui/progress";
 import { CheckCircle } from "lucide-react";
 import WebcamFeed from "./webcam-feed";
 import { useToast } from "@/hooks/use-toast";
-import type { CalibrationData } from "./dashboard";
+import type { CalibrationData, Metrics } from "./dashboard";
 
 interface CalibrationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   setCalibrationData: (data: CalibrationData) => void;
+  liveMetrics: Metrics;
 }
 
-export default function CalibrationDialog({ open, onOpenChange, setCalibrationData }: CalibrationDialogProps) {
+export default function CalibrationDialog({ open, onOpenChange, setCalibrationData, liveMetrics }: CalibrationDialogProps) {
   const [progress, setProgress] = useState(0);
   const [isDone, setIsDone] = useState(false);
-  const [cameraReady, setCameraReady] = useState(false);
   const [isCalibrating, setIsCalibrating] = useState(false);
-  const [calibrationFailed, setCalibrationFailed] = useState(false);
   
   const metricsBuffer = useRef<{ ear: number; mar: number }[]>([]);
   const { toast } = useToast();
-
-  const handleMetricsUpdate = useCallback((metrics: { ear: number, mar: number }) => {
-    if (isCalibrating) {
-        if(metrics.ear > 0 && metrics.mar > 0) {
-            metricsBuffer.current.push(metrics);
-        }
-    }
-  }, [isCalibrating]);
   
   const startCalibration = () => {
     setProgress(0);
     setIsDone(false);
-    setCalibrationFailed(false);
     metricsBuffer.current = [];
     setIsCalibrating(true);
   };
@@ -62,6 +52,13 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
   }, [isCalibrating]);
 
   useEffect(() => {
+    if (isCalibrating && liveMetrics.ear > 0 && liveMetrics.mar > 0) {
+      metricsBuffer.current.push({ ear: liveMetrics.ear, mar: liveMetrics.mar });
+    }
+  }, [isCalibrating, liveMetrics]);
+
+
+  useEffect(() => {
     if (!isCalibrating && progress === 100) {
       if (metricsBuffer.current.length > 10) {
           const avgEar = metricsBuffer.current.reduce((sum, m) => sum + m.ear, 0) / metricsBuffer.current.length;
@@ -74,36 +71,29 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
               description: `Baseline EAR set to ${avgEar.toFixed(2)}`,
           });
       } else {
-          setCalibrationFailed(true);
+          toast({
+            variant: "destructive",
+            title: "Calibration Failed",
+            description: "Could not detect facial features clearly. Please try again in better lighting.",
+          });
+          onOpenChange(false); // Close dialog on failure
       }
     }
-  }, [isCalibrating, progress, setCalibrationData, toast]);
-
-  useEffect(() => {
-    if (calibrationFailed) {
-      setTimeout(() => {
-        toast({
-          variant: "destructive",
-          title: "Calibration Failed",
-          description: "Could not detect facial features clearly. Please try again in better lighting.",
-        });
-      }, 0);
-      onOpenChange(false);
-    }
-  }, [calibrationFailed, onOpenChange, toast]);
+  }, [isCalibrating, progress, setCalibrationData, toast, onOpenChange]);
   
   useEffect(() => {
+    // Reset state when dialog is closed
     if (!open) {
       setTimeout(() => {
         setIsCalibrating(false);
         setIsDone(false);
         setProgress(0);
-        setCameraReady(false);
-        setCalibrationFailed(false);
         metricsBuffer.current = [];
-      }, 300);
+      }, 300); // Delay to allow for exit animation
     }
   }, [open]);
+
+  const canStart = liveMetrics.ear > 0 && liveMetrics.mar > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -120,8 +110,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
                 isActive={open}
                 isMonitoring={false}
                 isCalibrating={isCalibrating}
-                onMetricsUpdate={handleMetricsUpdate}
-                onCameraReady={setCameraReady}
+                onMetricsUpdate={() => {}} // This is handled by liveMetrics prop now
                 showOverlay={true} 
                 title="Calibration Feed"
                 description="Position your face in the center."
@@ -136,7 +125,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
                 <div className="w-full space-y-2">
                     <Progress value={progress} />
                     <p className="text-center text-sm font-medium text-muted-foreground">
-                        {isCalibrating ? "Calibrating... Please hold still." : (cameraReady ? "Ready to begin calibration." : "Waiting for camera...")}
+                        {isCalibrating ? "Calibrating... Please hold still." : (canStart ? "Ready to begin calibration." : "Waiting for camera...")}
                     </p>
                 </div>
             )}
@@ -145,7 +134,7 @@ export default function CalibrationDialog({ open, onOpenChange, setCalibrationDa
             {isDone ? (
                 <Button onClick={() => onOpenChange(false)}>Close</Button>
             ) : (
-                <Button onClick={startCalibration} disabled={isCalibrating || !cameraReady}>
+                <Button onClick={startCalibration} disabled={isCalibrating || !canStart}>
                     {isCalibrating ? "Calibrating..." : "Start Calibration"}
                 </Button>
             )}
