@@ -69,38 +69,39 @@ body {
   }
 }
 
-@keyframes logo-bounce {
-  0%, 100% {
-    transform: translateY(-2%);
-    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
-  }
-  50% {
-    transform: translateY(0);
-    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
-  }
+/* New Logo Animation */
+@keyframes logo-travel {
+  0% { transform: translateX(0) rotate(0deg); }
+  45% { transform: translateX(calc(50vw - 150%)) rotate(360deg); }
+  50% { transform: translateX(calc(50vw - 150%)) rotate(360deg); } /* Pause for blink */
+  55% { transform: translateX(calc(50vw - 150%)) rotate(360deg); } /* Pause for blink */
+  100% { transform: translateX(0) rotate(0deg); }
 }
 
 @keyframes logo-blink {
-  0%, 40%, 100% {
-    transform: scaleY(1);
-  }
-  45% {
-    transform: scaleY(0.1);
-  }
-  50% {
-    transform: scaleY(1);
-  }
+  0%, 45%, 55%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.1); }
+}
+
+.logo-container {
+  position: absolute;
+  left: 2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  animation: logo-travel 10s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
 .logo-bounce {
-  animation: logo-bounce 3s infinite;
+  animation: none; /* remove old bounce */
 }
 
 .logo-blink {
-  animation: logo-blink 5s infinite;
+  animation: logo-blink 10s linear infinite;
   transform-origin: center;
 }
 
+
+/* Alert Animations */
 @keyframes gradient-animation {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }

@@ -13,26 +13,24 @@ interface HeaderProps {
   onExport: () => void;
   isExportDisabled: boolean;
 }
-
-const Logo = () => (
-    <div className="logo-bounce w-8 h-8 relative">
-        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="text-primary w-full h-full">
-            <path d="M50 10 C 20 10, 10 40, 10 50 C 10 60, 20 90, 50 90 C 80 90, 90 60, 90 50 C 90 40, 80 10, 50 10 z" fill="currentColor"/>
-            <g className="logo-blink">
-                <circle cx="50" cy="50" r="12" className="text-accent dark:text-background" fill="currentColor" />
-                <circle cx="50" cy="50" r="5" className="text-foreground/70" fill="currentColor" />
-            </g>
-        </svg>
-    </div>
-);
   
 export default function Header({ isMonitoring, onToggleMonitoring, onCalibrate, onOpenSettings, onExport, isExportDisabled }: HeaderProps) {
   const { setTheme, theme } = useTheme();
 
   return (
-    <header className="flex items-center justify-between p-4 border-b bg-card shadow-sm sticky top-0 z-40">
+    <header className="flex items-center justify-between p-4 border-b bg-card shadow-sm sticky top-0 z-40 overflow-hidden">
       <div className="flex items-center gap-3">
-        <Logo />
+        <div className="logo-container">
+            <div className="logo-bounce w-8 h-8 relative">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="text-primary w-full h-full">
+                    <path d="M50 10 C 20 10, 10 40, 10 50 C 10 60, 20 90, 50 90 C 80 90, 90 60, 90 50 C 90 40, 80 10, 50 10 z" fill="currentColor"/>
+                    <g className="logo-blink">
+                        <circle cx="50" cy="50" r="12" className="text-accent dark:text-background" fill="currentColor" />
+                        <circle cx="50" cy="50" r="5" className="text-foreground/70" fill="currentColor" />
+                    </g>
+                </svg>
+            </div>
+        </div>
         <h1 className="text-xl md:text-2xl font-bold text-foreground">Vigilance AI</h1>
       </div>
       <div className="flex items-center gap-2">
