@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
-  title: 'Drishti AI',
+  title: 'Chetana AI',
   description: 'Drowsiness and vital sign detection system',
 };
 
