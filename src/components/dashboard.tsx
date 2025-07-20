@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import FlashingAlert from "./flashing-alert";
 import ConfoundingFactors from "./confounding-factors";
 import type { DrowsinessAnalysisOutput, SummarizeSessionOutput } from "@/ai/schemas";
-import { playAlertSound } from "@/lib/utils";
+import { playAlertSound, startContinuousAlert, stopContinuousAlert } from "@/lib/utils";
 
 export interface Metrics {
   blinkCount: number;
@@ -66,6 +66,7 @@ export default function Dashboard() {
   const [drowsinessHistory, setDrowsinessHistory] = useState<DrowsinessDataPoint[]>([]);
   const [confoundingFactors, setConfoundingFactors] = useState<string[]>([]);
   const [showFlashingAlert, setShowFlashingAlert] = useState(false);
+  const [isContinuousAlerting, setIsContinuousAlerting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCalibration, setShowCalibration] = useState(true);
   const [showSummary, setShowSummary] = useState(false);
@@ -173,6 +174,10 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isMonitoring) {
         setShowFlashingAlert(false);
+        if(isContinuousAlerting) {
+            stopContinuousAlert();
+            setIsContinuousAlerting(false);
+        }
         if(aiAnalysis){
           setAiAnalysis(null);
         }
@@ -200,23 +205,47 @@ export default function Dashboard() {
     return () => {
         clearInterval(analysisInterval);
         clearInterval(historyInterval);
+        if (isContinuousAlerting) {
+            stopContinuousAlert();
+            setIsContinuousAlerting(false);
+        }
     }
-  }, [isMonitoring, runDrowsinessAnalysis, aiAnalysis]);
+  }, [isMonitoring, runDrowsinessAnalysis, aiAnalysis, isContinuousAlerting]);
 
   useEffect(() => {
     const now = Date.now();
     const alertLevel = aiAnalysis?.drowsinessLevel;
-    const shouldAlert = alertLevel === 'Moderately Drowsy' || alertLevel === 'Severely Drowsy';
+    const isSevere = alertLevel === 'Severely Drowsy';
+    const isModerate = alertLevel === 'Moderately Drowsy';
 
-    if (isMonitoring && shouldAlert && (now - lastAlertTime.current > 30000)) { // 30s cooldown
-      setShowFlashingAlert(true);
-      if (settings.audibleAlerts) {
-        playAlertSound();
-      }
-      lastAlertTime.current = now;
-      setTimeout(() => setShowFlashingAlert(false), 5000); // Hide alert after 5 seconds
+    if (isMonitoring && settings.audibleAlerts) {
+        if (isSevere && !isContinuousAlerting) {
+            startContinuousAlert();
+            setIsContinuousAlerting(true);
+        } else if (!isSevere && isContinuousAlerting) {
+            stopContinuousAlert();
+            setIsContinuousAlerting(false);
+        } else if (isModerate && !isContinuousAlerting && (now - lastAlertTime.current > 30000)) { // 30s cooldown for moderate
+            playAlertSound();
+            lastAlertTime.current = now;
+        }
+    } else if (isContinuousAlerting) { // Stop if monitoring stops or alerts are disabled
+        stopContinuousAlert();
+        setIsContinuousAlerting(false);
     }
-  }, [isMonitoring, aiAnalysis, settings.audibleAlerts]);
+    
+    // Visual flashing alert logic
+    const shouldFlash = isSevere || isModerate;
+    if (isMonitoring && shouldFlash) {
+        if (!showFlashingAlert) {
+            setShowFlashingAlert(true);
+        }
+    } else {
+        if (showFlashingAlert) {
+            setShowFlashingAlert(false);
+        }
+    }
+  }, [isMonitoring, aiAnalysis, settings.audibleAlerts, isContinuousAlerting, showFlashingAlert]);
 
   const resetState = () => {
     setMetrics({ blinkCount: 0, blinkDuration: 0, yawnCount: 0, yawnDuration: 0, ear: 0, mar: 0, drowsinessScore: 0 });
@@ -224,6 +253,10 @@ export default function Dashboard() {
     setAiAnalysis(null);
     setSessionSummary(null);
     setShowFlashingAlert(false);
+    if (isContinuousAlerting) {
+        stopContinuousAlert();
+        setIsContinuousAlerting(false);
+    }
     blinkHistoryRef.current = [];
     yawnHistoryRef.current = [];
     lastAlertTime.current = 0;
@@ -247,6 +280,10 @@ export default function Dashboard() {
       setIsMonitoring(true);
     } else {
       setIsMonitoring(false);
+      if(isContinuousAlerting) {
+        stopContinuousAlert();
+        setIsContinuousAlerting(false);
+      }
       if (sessionStartTime.current) {
         const sessionDuration = (Date.now() - sessionStartTime.current) / 1000;
         const historyForSummary = drowsinessHistory.map(p => ({ time: p.time, drowsiness: p.drowsiness }));

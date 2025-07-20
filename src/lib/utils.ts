@@ -6,11 +6,16 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 let audioContext: AudioContext | null = null;
+let continuousAlert: { oscillator: OscillatorNode, gainNode: GainNode } | null = null;
 
 const getAudioContext = (): AudioContext | null => {
   if (typeof window !== 'undefined') {
     if (!audioContext) {
       audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    // Resume context on user interaction if it's suspended.
+    if (audioContext.state === 'suspended') {
+      audioContext.resume();
     }
     return audioContext;
   }
@@ -19,12 +24,7 @@ const getAudioContext = (): AudioContext | null => {
 
 export function playAlertSound() {
   const context = getAudioContext();
-  if (!context) return;
-
-  // Resume context on user interaction
-  if (context.state === 'suspended') {
-    context.resume();
-  }
+  if (!context || continuousAlert) return; // Don't play if continuous alert is active
 
   const oscillator = context.createOscillator();
   const gainNode = context.createGain();
@@ -33,12 +33,52 @@ export function playAlertSound() {
   gainNode.connect(context.destination);
 
   // Sound properties
-  oscillator.type = 'sine'; // A simple, non-jarring tone
-  oscillator.frequency.setValueAtTime(880, context.currentTime); // A4 note, a common alert frequency
-  gainNode.gain.setValueAtTime(0.5, context.currentTime); // Volume
+  oscillator.type = 'sine';
+  oscillator.frequency.setValueAtTime(880, context.currentTime); 
+  gainNode.gain.setValueAtTime(0.5, context.currentTime);
 
-  // Play the sound
   oscillator.start(context.currentTime);
-  // Stop after a short duration
-  oscillator.stop(context.currentTime + 0.2); // Play for 200ms
+  oscillator.stop(context.currentTime + 0.2);
+}
+
+export function startContinuousAlert() {
+  const context = getAudioContext();
+  if (!context || continuousAlert) return;
+
+  const oscillator = context.createOscillator();
+  const gainNode = context.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(context.destination);
+
+  // Beep-pause pattern
+  oscillator.type = 'square';
+  gainNode.gain.setValueAtTime(0.3, context.currentTime);
+  oscillator.frequency.setValueAtTime(960, context.currentTime);
+  
+  // Create a looping effect
+  const loop = () => {
+    gainNode.gain.setValueAtTime(0.3, context.currentTime);
+    setTimeout(() => {
+        gainNode.gain.setValueAtTime(0, context.currentTime);
+    }, 200); // Beep for 200ms
+  };
+  
+  oscillator.start(context.currentTime);
+  
+  const intervalId = setInterval(loop, 600); // Beep every 600ms
+  
+  continuousAlert = { oscillator, gainNode };
+  
+  // Add a way to stop it
+  continuousAlert.oscillator.onended = () => {
+    clearInterval(intervalId);
+  };
+}
+
+export function stopContinuousAlert() {
+  if (continuousAlert) {
+    continuousAlert.oscillator.stop();
+    continuousAlert = null;
+  }
 }
