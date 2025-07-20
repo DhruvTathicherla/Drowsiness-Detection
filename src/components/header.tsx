@@ -31,7 +31,7 @@ export default function Header({ isMonitoring, onToggleMonitoring, onCalibrate, 
                 </svg>
             </div>
         </div>
-        <h1 className="text-xl md:text-2xl font-bold text-foreground pl-12">Jagriti AI</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-foreground pl-12">Vigilance AI</h1>
       </div>
       <div className="flex items-center gap-2">
          <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
