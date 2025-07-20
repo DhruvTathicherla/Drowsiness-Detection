@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
-  title: 'Vigilance AI',
+  title: 'Drishti AI',
   description: 'Drowsiness and vital sign detection system',
 };
 
