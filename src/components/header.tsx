@@ -26,7 +26,8 @@ export default function Header({ isMonitoring, onToggleMonitoring, onCalibrate, 
                     <path fill="currentColor" d="M99.3,47.6C95.2,21,78.2,3.3,51.8,0.7c-2.3-0.2-4.2,1.6-4.2,3.9v0c0,1.9,1.4,3.6,3.3,4c19.7,2.9,33.3,16.2,36.9,34.8c0.6,2.9,3.6,4.6,6.4,3.9C97.1,56.5,99.9,52.3,99.3,47.6z M48.2,99.3C21.8,96.7,4.8,79,0.7,52.4C0.1,47.7,2.9,43.5,6.7,42.7c2.9-0.6,5.8,1.1,6.4,3.9c3.6,18.6,17.2,31.9,36.9,34.8c1.9,0.3,3.3,2,3.3,4v0C53.3,97.7,50.5,99.5,48.2,99.3z"/>
                     <g className="logo-blink">
                       <circle cx="50" cy="50" r="14" className="text-accent dark:text-background" fill="currentColor" />
-                      <circle cx="50" cy="50" r="6" className="text-foreground/70" fill="currentColor" />
+                      <path d="M50 43 L52.5 47.5 L57 50 L52.5 52.5 L50 57 L47.5 52.5 L43 50 L47.5 47.5 Z" fill="hsl(var(--primary-foreground))" opacity="0.9" />
+                      <circle cx="50" cy="50" r="4" className="text-foreground/70" fill="currentColor" />
                     </g>
                 </svg>
             </div>
