@@ -23,15 +23,15 @@ export default function Header({ isMonitoring, onToggleMonitoring, onCalibrate, 
         <div className="logo-container">
             <div className="logo-bounce w-10 h-10 relative">
                 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="text-primary w-full h-full drop-shadow-lg">
-                    <path d="M50 10 C 20 10, 10 40, 10 50 C 10 60, 20 90, 50 90 C 80 90, 90 60, 90 50 C 90 40, 80 10, 50 10 z" fill="currentColor"/>
+                    <path fill="currentColor" d="M99.3,47.6C95.2,21,78.2,3.3,51.8,0.7c-2.3-0.2-4.2,1.6-4.2,3.9v0c0,1.9,1.4,3.6,3.3,4c19.7,2.9,33.3,16.2,36.9,34.8c0.6,2.9,3.6,4.6,6.4,3.9C97.1,56.5,99.9,52.3,99.3,47.6z M48.2,99.3C21.8,96.7,4.8,79,0.7,52.4C0.1,47.7,2.9,43.5,6.7,42.7c2.9-0.6,5.8,1.1,6.4,3.9c3.6,18.6,17.2,31.9,36.9,34.8c1.9,0.3,3.3,2,3.3,4v0C53.3,97.7,50.5,99.5,48.2,99.3z"/>
                     <g className="logo-blink">
-                        <circle cx="50" cy="50" r="14" className="text-accent dark:text-background" fill="currentColor" />
-                        <circle cx="50" cy="50" r="6" className="text-foreground/70" fill="currentColor" />
+                      <circle cx="50" cy="50" r="14" className="text-accent dark:text-background" fill="currentColor" />
+                      <circle cx="50" cy="50" r="6" className="text-foreground/70" fill="currentColor" />
                     </g>
                 </svg>
             </div>
         </div>
-        <h1 className="text-xl md:text-2xl font-bold text-foreground pl-12">Vigilance AI</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-foreground pl-12">Jagriti AI</h1>
       </div>
       <div className="flex items-center gap-2">
          <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
