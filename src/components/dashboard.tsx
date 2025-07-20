@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import FlashingAlert from "./flashing-alert";
 import ConfoundingFactors from "./confounding-factors";
 import type { DrowsinessAnalysisOutput, SummarizeSessionOutput } from "@/ai/schemas";
+import { playAlertSound } from "@/lib/utils";
 
 export interface Metrics {
   blinkCount: number;
@@ -80,7 +81,6 @@ export default function Dashboard() {
   
   const { toast } = useToast();
   const sessionStartTime = useRef<number | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastAlertTime = useRef<number>(0);
   
   const metricsRef = useRef(metrics);
@@ -94,12 +94,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     setIsClient(true);
-    // Ensure Audio is only accessed on the client
-    if (typeof Audio !== "undefined") {
-      const audio = new Audio("/alert.mp3");
-      audio.preload = "auto";
-      audioRef.current = audio;
-    }
   }, []);
 
   const getDrowsinessScoreFromLevel = (level: string): number => {
@@ -216,8 +210,8 @@ export default function Dashboard() {
 
     if (isMonitoring && shouldAlert && (now - lastAlertTime.current > 30000)) { // 30s cooldown
       setShowFlashingAlert(true);
-      if (settings.audibleAlerts && audioRef.current) {
-        audioRef.current.play().catch(e => console.error("Error playing sound:", e));
+      if (settings.audibleAlerts) {
+        playAlertSound();
       }
       lastAlertTime.current = now;
       setTimeout(() => setShowFlashingAlert(false), 5000); // Hide alert after 5 seconds
