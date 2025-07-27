@@ -20,4 +20,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+module.exports = nextConfig;
