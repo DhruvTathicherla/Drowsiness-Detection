@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 71.4% 4.1%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71.4% 4.1%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71.4% 4.1%;
+    --primary: 217 91% 60%; /* Vibrant Blue */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 220 13% 91%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 220 13% 91%;
+    --muted-foreground: 220 8.9% 46.1%;
+    --accent: 35 91% 60%; /* Warm Orange */
+    --accent-foreground: 24 9.8% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 217 91% 60%;
+    --radius: 0.75rem;
+    --chart-1: 217 91% 60%;
+    --chart-2: 120 70% 45%;
+    --chart-3: 0 84.2% 60.2%;
+    --chart-4: 35 91% 60%;
+    --chart-5: 27 87% 67%;
+  }
+ 
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 210 20% 98%;
+    --card: 224 71% 8%;
+    --card-foreground: 210 20% 98%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 215 28% 17%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 218 11% 65%;
+    --accent: 35 91% 60%;
+    --accent-foreground: 24 9.8% 10%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 85.7% 97.3%;
+    --border: 215 28% 17%;
+    --input: 215 28% 17%;
+    --ring: 217 91% 60%;
+    --chart-1: 217 91% 60%;
+    --chart-2: 120 70% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Logo Animation */
+@keyframes logo-travel {
+  0% { transform: translateX(-10vw) rotate(0deg); }
+  45% { transform: translateX(calc(50vw - 110%)) rotate(360deg); }
+  55% { transform: translateX(calc(50vw - 110%)) rotate(360deg); }
+  100% { transform: translateX(110vw) rotate(0deg); }
+}
+
+
+@keyframes logo-blink {
+  0%, 45%, 55%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.1); }
+}
+
+.logo-container {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  animation: logo-travel 12s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  z-index: 50;
+}
+
+.logo-bounce {
+  animation: none;
+}
+
+.logo-blink {
+  animation: logo-blink 12s linear infinite;
+  transform-origin: center;
+}
+
+
+/* Alert Animations */
+@keyframes gradient-animation {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+@keyframes pulse-moderate {
+    0%, 100% { box-shadow: 0 0 10px 5px hsla(var(--accent), 0.7); }
+    50% { box-shadow: 0 0 25px 15px hsla(48, 96%, 51%, 0.7); }
+}
+@keyframes pulse-severe {
+    0%, 100% { box-shadow: 0 0 15px 7px hsla(var(--destructive), 0.8); }
+    50% { box-shadow: 0 0 35px 20px hsla(var(--accent), 0.8); }
+}
