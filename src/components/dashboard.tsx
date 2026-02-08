@@ -184,11 +184,11 @@ export default function Dashboard() {
       setAiAnalysis(result);
       const score = getDrowsinessScoreFromLevel(result.drowsinessLevel);
       setMetrics(prev => ({...prev, drowsinessScore: score}));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("AI Analysis failed:", error);
       
       // Check if it's a quota error
-      const errorMessage = error?.message || error?.toString() || '';
+      const errorMessage = error instanceof Error ? error.message : String(error);
       if (errorMessage.includes('quota') || errorMessage.includes('429')) {
         quotaExhaustedRef.current = true;
         toast({
